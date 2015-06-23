@@ -50,7 +50,7 @@ We choose some random pure state to generate the ficticious experiment
 We can compute the expectation values of the observables for this state using Born's rule
 ```julia
 ideal_means = Float64[ real(trace(o*\rho)) for o in obs ]
-```julia
+```
 With these in hand, we can finally reconstruct `\rho` from the observed expectation values and variances.
 ```
 qst_ml(obs, ideal_means, ideal_vars);
@@ -67,7 +67,7 @@ Raytheon BBN Technologies.
 
 ## License
 
-Apache?
+Apache Lincense 2.0 ([summary](https://tldrlegal.com/license/apache-license-2.0-(apache-2.0)))
 
 ## Authors
 
