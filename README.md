@@ -6,7 +6,7 @@ of finite dimensional systems.
 The tomography technique used relies on the assumption that the
 ensemble of observations is large enough so that the estimated means
 have a Gaussian distribution (to good approximation).  This assumption
-is not essential, but it is convenient for the use of [Convex.jl]() as
+is not essential, but it is convenient for the use of [Convex.jl](https://github.com/JuliaOpt/Convex.jl) as
 a solver. 
 
 Given the estimated means and variances of the observations,
