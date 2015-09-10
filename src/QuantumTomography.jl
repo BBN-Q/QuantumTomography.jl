@@ -12,6 +12,13 @@
 #     See the License for the specific language governing permissions and
 #     limitations under the License.
 
+module QuantumTomography
+
+export qst_lsq,
+       qst_ml,
+       qpt_lsq,
+       qpt_ml
+
 using Convex, Distributions, SchattenNorms, SCS
 
 set_default_solver(SCSSolver(verbose=0,max_iters=10000,eps=1e-5))
@@ -20,6 +27,28 @@ function ketbra(a,b,d)
     m = spzeros(Float64,d,d)
     m[a+1,b+1] = 1.0
     return m
+end
+
+function build_state_predictor(obs::Vector{Matrix})
+    return reduce(vcat,[vec(o)' for o in obs])
+end
+
+function build_process_predictor(obs::Vector{Matrix}, prep::Vector{Matrix})
+    exps = Matrix[ choi_liou_involution(vec(o)*vec(p)') for o in obs, p in prep ]
+    return educe(vcat, map(m->vec(m)', vec(exps)) )
+end
+
+# TODO: What about the unobservale traceful component?
+#       If we assume normalized states, we can add a dummy predictor row, mean and variance.
+function qst_lsq(pred::Matrix, means::Vector{Float64}, vars::Vector{Float64}; method=:OLS)
+    d = Int(size(pred,1) |> sqrt |> round)
+    if method==:OLS
+        return reshape(pred\means,d,d)
+    elseif methods==:GLS
+        return reshape((sqrt(vars)\pred)\means,d,d)
+    else
+        error("Unrecognized method for least squares state tomography")
+    end
 end
 
 function qst_ml(pred::Matrix, means::Vector{Float64}, vars::Vector{Float64})
@@ -60,6 +89,18 @@ function trb_sop(da,db)
     return sop
 end
 
+# TODO: what about the (unobservable) traceful component
+function qpt_lsq(pred::Matrix, means::Vector{Float64}, vars::Vector{Float64}; method=:OLS)
+    d = Int(shape(pred,1) |> sqrt |> round)
+    if method==:OLS
+        return reshape(pred\means,d,d)
+    elseif methods==:GLS
+        return reshape((sqrt(vars)\pred)\means,d,d)
+    else
+        error("Unrecognized method for least squares process tomography")
+    end
+end
+
 # For QPT, we write the predictor as operating on Choi-Jamilokoski
 # matrices.  This is a bit awkward in comparisson to using the
 # Liouville/natural representation, but it gets around some of the
@@ -96,13 +137,19 @@ function qpt_ml(pred::Matrix, means::Vector{Float64}, vars::Vector{Float64})
 end
 
 function qst_ml(obs::Vector{Matrix}, means::Vector{Float64}, vars::Vector{Float64})
-    pred = reduce(vcat,[vec(o)' for o in obs])
+    #pred = reduce(vcat,[vec(o)' for o in obs])
+    pred = build_state_predictor(obs)
     return qst_ml(pred, means, vars)
 end
 
 function qpt_ml(obs::Vector{Matrix}, states::Vector{Matrix}, means::Vector{Float64}, vars::Vector{Float64})
-    exps = Matrix[ choi_liou_involution(vec(o)*vec(p)') for o in obs, p in prep ]
-    pred = reduce(vcat, map(m->vec(m)', vec(exps)) )
+    #exps = Matrix[ choi_liou_involution(vec(o)*vec(p)') for o in obs, p in prep ]
+    #pred = reduce(vcat, map(m->vec(m)', vec(exps)) )
+    pred = build_process_predictor(obs, prep)
     return qpt_ml(pred, meas, vars)
 end
+
+include("utilities.jl")
+
+end # module
 

@@ -29,10 +29,11 @@ POVM elements.
 
 + `proc_tomo_ml()` :
 
-+ `meas_tomo_lsq()`
++ `meas_tomo_lsq()`:
 
-+ `meas_tomo_ml()`
++ `meas_tomo_ml()`:
 
++ `nearestu()` : computes the closest CP unitary to a given CP map according to the metric discussed in by Daniel Oi in [Phys. Rev. Lett. 91, 067902 (2003)](http://journals.aps.org/prl/abstract/10.1103/PhysRevLett.91.067902)
 
 ## Examples
 
