@@ -19,7 +19,7 @@ export qst_lsq,
        qpt_lsq,
        qpt_ml
 
-using Convex, Distributions, SchattenNorms, SCS
+using Convex, Distributions, SchattenNorms, SCS, QuantumInfo
 
 set_default_solver(SCSSolver(verbose=0,max_iters=10000,eps=1e-5))
 

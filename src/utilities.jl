@@ -15,7 +15,7 @@
 export nearestu
 
 """
-Computes the unitary CP map closest to a given CP map.
+Computes the unitary CP map closest (interferometrically) to a given CP map.
 """
 function nearestu(l)
     c = liou2choi(l)
