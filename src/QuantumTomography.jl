@@ -38,6 +38,24 @@ function build_process_predictor(obs::Vector{Matrix}, prep::Vector{Matrix})
     return educe(vcat, map(m->vec(m)', vec(exps)) )
 end
 
+immutable StateTomography
+    predictor::Matrix
+end
+
+function predict(st::StateTomography,ρ::Matrix)
+end
+
+function score(st::StateTomography, ρ::Matrix, means::Vector)
+end
+
+immutable ProcessTomography
+    predictor::Matrix
+end
+
+function predict(st::ProcessTomography,G::Matrix)
+end
+
+
 # TODO: What about the unobservale traceful component?
 #       If we assume normalized states, we can add a dummy predictor row, mean and variance.
 function qst_lsq(pred::Matrix, means::Vector{Float64}, vars::Vector{Float64}; method=:OLS)

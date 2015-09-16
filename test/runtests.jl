@@ -1,6 +1,24 @@
 #using QuantumTomography
 include("../src/QuantumTomography.jl")
 
+function test()
+    obs = Matrix[[0 1; 1 0], [0 -1im; 1im 0], pauli(3), -[0 1; 1 0], -[0 -1im; 1im 0], -pauli(3)]
+    
+    st = StateTomography(obs)
+
+    ρ = .98*projector(rand_pure_state(2))+.02*rand_mixed_state(2)
+
+    ideal_means = predict(st,ρ)
+        
+    samples = [ rand(Bernoulli((μ+1)/2),n) for μ in ideal_means ]
+    sample_mean = 2*map(mean,samples)-1
+    sample_var  = 4*map(var,samples)/n
+    
+    ρest, obj, status = qst_ml(pred, sample_mean, sample_var);
+    
+    return status, snorm(ρ-ρest,1), obj, ρ, ρest
+end
+
 function test_qst_ml(n=1000)
     obs = Matrix[[0 1; 1 0], [0 -1im; 1im 0], pauli(3), -[0 1; 1 0], -[0 -1im; 1im 0], -pauli(3)]
     
