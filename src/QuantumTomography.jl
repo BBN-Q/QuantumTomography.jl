@@ -14,20 +14,20 @@
 
 module QuantumTomography
 
-export qst_lsq,
-       qst_ml,
-       qpt_lsq,
-       qpt_ml
+import Distributions.fit
+
+export fit,
+       predict,
+       LSStateTomo,
+       MLStateTomo
 
 using Convex, Distributions, SchattenNorms, SCS, QuantumInfo
 
-set_default_solver(SCSSolver(verbose=0,max_iters=10000,eps=1e-5))
-
-function ketbra(a,b,d)
-    m = spzeros(Float64,d,d)
-    m[a+1,b+1] = 1.0
-    return m
-end
+#function ketbra(a,b,d)
+#    m = spzeros(Float64,d,d)
+#    m[a+1,b+1] = 1.0
+#    return m
+#end
 
 function build_state_predictor(obs::Vector{Matrix})
     return reduce(vcat,[vec(o)' for o in obs])
@@ -35,7 +35,7 @@ end
 
 function build_process_predictor(obs::Vector{Matrix}, prep::Vector{Matrix})
     exps = Matrix[ choi_liou_involution(vec(o)*vec(p)') for o in obs, p in prep ]
-    return educe(vcat, map(m->vec(m)', vec(exps)) )
+    return reduce(vcat, map(m->vec(m)', vec(exps)) )
 end
 
 # TODO: What about the unobservale traceful component?
@@ -44,37 +44,150 @@ function qst_lsq(pred::Matrix, means::Vector{Float64}, vars::Vector{Float64}; me
     d = Int(size(pred,1) |> sqrt |> round)
     if method==:OLS
         return reshape(pred\means,d,d)
-    elseif methods==:GLS
+    elseif method==:GLS
         return reshape((sqrt(vars)\pred)\means,d,d)
     else
         error("Unrecognized method for least squares state tomography")
     end
 end
 
-function qst_ml(pred::Matrix, means::Vector{Float64}, vars::Vector{Float64})
-    if length(means) != length(vars) || size(pred,1) != length(means)
+#type LSStateTomography
+#  pred::Matrix
+#end
+
+#function fit(method::LSStateTomography,means::Vector,vars::Vector)
+#end
+
+#function fit(method::GLSStateTomography,means::Vector,vars::Vector)
+#end
+
+type LSStateTomo
+    inputdim::Int
+    outputdim::Int
+    realpred::Matrix
+    function LSStateTomo(obs::Vector)
+        pred = build_state_predictor(obs)
+        outputdim = size(pred,1)
+        inputdim = size(pred,2)
+        realpred = [real(pred) imag(pred)];
+        new(inputdim,outputdim,realpred)
+    end
+end
+
+function predict(method::LSStateTomo,state)
+    (method.realpred[:,1:round(Int,end/2)]+1im*method.realpred[:,round(Int,end/2)+1:end])*vec(state)
+end
+
+function fit(method::LSStateTomo,
+             means::Vector{Float64}, 
+             vars::Vector{Float64};
+             solver = SCSSolver(verbose=0, max_iters=10_000, eps = 1e-8))
+
+    if length(means) != length(vars) || method.outputdim != length(means)
         error("Size of observations and/or predictons do not match.")
     end
-    dsq = size(pred,2)
-    d = Int(sqrt(dsq))
+    dsq = method.inputdim
+    d = round(Int,sqrt(dsq))
+
     # We assume that the predictions are always real-valued
     # and we need to do the complex->real translation manually since
     # Convex.jl does not support complex numbers yet
-    rpred = [real(pred) imag(pred)];
     ivars = 1./sqrt(vars)
 
     ρr = Variable(d,d)
     ρi = Variable(d,d)
 
-    problem = minimize( vecnorm( (means - rpred*[vec(ρr); vec(ρi)]) .* ivars, 2)^2 )
+    constraints = trace(ρr) == 1
+    constraints += trace(ρi) == 0
+    constraints += isposdef([ρr ρi; -ρi ρr])
 
-    problem.constraints += trace(ρr) == 1
-    problem.constraints += trace(ρi) == 0
-    problem.constraints += isposdef([ρr ρi; -ρi ρr])
+    # TODO: use quad_form instead of vecnorm? Have 1/vars are diagonal quadratic form
+    problem = minimize( vecnorm( (means - method.realpred*[vec(ρr); vec(ρi)]) .* ivars, 2)^2, constraints )
 
-    solve!(problem, SCSSolver(verbose=0))
+    solve!(problem, solver)
 
     return (ρr.value - 1im*ρi.value), problem.optval, problem.status
+end
+
+type MLStateTomo
+    effects::Vector
+    dim::Int64
+    function MLStateTomo(v::Vector)
+        for e in v
+            if !ishermitian(e) || !ispossemidef(e) || real(trace(e))>1
+                error("MLStateTomo state tomography is parameterized by POVM effects only.")
+            end
+        end
+        if !all([size(e,1)==size(e,2) for e in v]) || !all([size(v[1],1)==size(e,1) for e in v]) 
+                error("All effects must be square matrices, and they must have have the same dimension.")
+        end
+        new(v,size(v[1],1))
+    end
+end
+
+function predict(method::MLStateTomo,ρ)
+    Float64[ real(trace(ρ*e)) for e in method.effects]
+end
+
+function fit(method::MLStateTomo,
+             counts::Vector{Int};
+             solver = SCSSolver(verbose=0, max_iters=10_000, eps = 1e-8, warm_start=true))
+
+    if length(method.effects) != length(counts)
+        error("Vector of counts and vector of effects must have same length, but length(counts) == $(length(counts)) != $(length(method.effects))")
+    end
+    d = method.dim
+
+    ρr = Semidefinite(d)
+    ρi = Variable(d,d)
+    ρ  = Semidefinite(2d)
+
+    ϕ(m) = [real(m) -imag(m); imag(m) real(m)];
+    ϕ(r,i) = [r i; -i r]
+    ϕinvr(m) = m[1:round(Int,end/2),1:round(Int,end/2)]
+
+    obj = counts[1] * log(trace(ρ*ϕ(method.effects[1])))
+    for i=2:length(method.effects)
+        obj += counts[i] * log(trace(ρ*ϕ(method.effects[i])))
+    end
+
+    #obj = counts[1] * log(trace(ρr*method.effects[1]))
+    #for i=2:length(method.effects)
+    #    obj += counts[i] * log(trace(ρr*method.effects[i]))
+    #end
+
+    #obj = sum([ count[i] * log(trace(ρr*method.effects[i])) for i in 1:length(method.effects)])
+    #obj += .0001 * logdet(ρ)
+
+    println(obj)
+
+    constraints = trace(ρr) == 1
+    constraints += trace(ρi) == 0
+    constraints += ρ == [ρr ρi; -ρi ρr]
+
+    problem = maximize(obj, constraints)
+
+    println(problem)
+
+    solve!(problem, solver)
+
+    return ρr.value+im*ρi.value, problem.optval, problem.status
+    #return (ρr.value - 1im*ρi.value), problem.optval, problem.status
+end
+
+type HedgedMLStateTomo
+    effects::Vector{AbstractMatrix}
+    β::Float64
+end
+
+function fit(method::HedgedMLStateTomo,counts::Vector{Int})
+    if length(method.effects) != length(counts)
+        error("Vector of counts and vector of effects must have same length, but length(counts) == $(length(counts)) != $(length(method.effects))")
+    end
+    if β<=0
+        error("Hedging penalty must be positive")
+    end
+    # TODO
 end
 
 function trb_sop(da,db)
@@ -94,11 +207,17 @@ function qpt_lsq(pred::Matrix, means::Vector{Float64}, vars::Vector{Float64}; me
     d = Int(shape(pred,1) |> sqrt |> round)
     if method==:OLS
         return reshape(pred\means,d,d)
-    elseif methods==:GLS
+    elseif method==:GLS
         return reshape((sqrt(vars)\pred)\means,d,d)
     else
         error("Unrecognized method for least squares process tomography")
     end
+end
+
+type LSProcessTomo
+    inputdim::Int
+    outputdim::Int
+    realpred::Vector{AbstractMatrix}
 end
 
 # For QPT, we write the predictor as operating on Choi-Jamilokoski
