@@ -1,40 +1,72 @@
-#using QuantumTomography
-include("../src/QuantumTomography.jl")
+using Base.Test,
+      Cliffords, 
+      Distributions,
+      QuantumInfo, 
+      QuantumTomography, 
+      RandomQuantum,
+      SchattenNorms,
+      SCS
 
-function test_qst_ml(n=1000)
-    obs = Matrix[[0 1; 1 0], [0 -1im; 1im 0], pauli(3), -[0 1; 1 0], -[0 -1im; 1im 0], -pauli(3)]
+#include("../src/QuantumTomography.jl")
+
+function test_qst_gauss_ml_ideal()
+    obs = Matrix[ (complex(Pauli(i))+eye(2))/2 for i in 1:3 ]
+    append!(obs, Matrix[ (-complex(Pauli(i))+eye(2))/2 for i in 1:3 ])
+
+    tomo = GaussMLStateTomo(obs)
+
+    ρ = .98*projector(rand(FubiniStudyPureState(2)))+.02*rand(HilbertSchmidtMixedState(2))
     
-    pred = reduce(vcat,[vec(o)' for o in obs])
+    ideal_means = real(predict(tomo,ρ))
+
+    samples = ideal_means
+    sample_mean = samples
     
-    ρ = .98*projector(rand_pure_state(2))+.02*rand_mixed_state(2)
+    ρest, obj, status = fit(tomo, sample_mean, ones(length(samples)));
     
-    ideal_means = real(pred*vec(ρ))
-    
-    samples = [ rand(Bernoulli((μ+1)/2),n) for μ in ideal_means ]
-    sample_mean = 2*map(mean,samples)-1
-    sample_var  = 4*map(var,samples)/n
-    
-    ρest, obj, status = qst_ml(pred, sample_mean, sample_var);
-    
-    return status, snorm(ρ-ρest,1), obj, ρ, ρest
+    return status, trnorm(ρ-ρest), obj, ρ, ρest
 end
 
-function test_qst_ml_ideal(n=1000)
-    obs = Matrix[[0 1; 1 0], [0 -1im; 1im 0], pauli(3), -[0 1; 1 0], -[0 -1im; 1im 0], -pauli(3)]
+function test_qst_gauss_ml(n=10_000)
     
-    pred = reduce(vcat,[vec(o)' for o in obs])
+    obs = Matrix[ (complex(Pauli(i))+eye(2))/2 for i in 1:3 ]
+    append!(obs, Matrix[ (-complex(Pauli(i))+eye(2))/2 for i in 1:3 ])
+
+    tomo = GaussMLStateTomo(obs)
+
+    ρ = .98*projector(rand(FubiniStudyPureState(2)))+.02*rand(HilbertSchmidtMixedState(2))
     
-    ρ = .98*projector(rand_pure_state(2))+.02*rand_mixed_state(2)
+    ideal_means = real(predict(tomo,ρ))
     
-    ideal_means = real(pred*vec(ρ))
+    samples = [ rand(Binomial(n,μ))/n for μ in ideal_means ]
+    sample_mean = samples
+    sample_var  = n*(samples - samples.^2)/(n-1)
+
+    ρest, obj, status = fit(tomo, sample_mean, sample_var);
     
-    ps = (ideal_means+1)/2
-    ideal_vars = 4*ps.*(1-ps)/n 
+    return status, trnorm(ρ-ρest), obj, ρ, ρest
+end
+
+function test_qst_ml(n=10_000)
+    obs = Matrix[ (complex(Pauli(i))+eye(2))/2 for i in 1:3 ]
+    append!(obs, Matrix[ (-complex(Pauli(i))+eye(2))/2 for i in 1:3 ])
+
+    tomo = MLStateTomo(obs)
+
+    ρ = .98*projector(rand(FubiniStudyPureState(2)))+.02*rand(HilbertSchmidtMixedState(2))
     
-    ρest1, obj1, status1 = qst_ml(pred, ideal_means, ideal_vars);
-    ρest2, obj2, status2 = qst_ml(obs, ideal_means, ideal_vars);
+    ideal_means = real(predict(tomo,ρ))
+
+    samples = [rand(Binomial(n,μ)) for μ in ideal_means[1:3]]
+    append!(samples,10_000-samples)
+
+    println(samples)
     
-    return status1, status2, snorm(ρ-ρest1,1), snorm(ρ-ρest2,1), obj1-obj2, ρ, ρest1, ρest2
+    ρest, obj, status = fit(tomo, samples, solver = SCSSolver(verbose=2))
+
+    println(trnorm(ρ-ρest))
+    
+    return status, trnorm(ρ-ρest), obj, ρ, ρest
 end
 
 function test_qpt_ml(n=1000;ρ=zeros(Float64,0,0))
@@ -80,3 +112,24 @@ function test_trb(da,db)
     r = rand_mixed_state(da*db)
     norm(trace(r,[da,db],2)-mat(trb_sop(da,db)*vec(r)),1)
 end
+
+status, enorm, _, _, _ = test_qst_gauss_ml_ideal()
+println("Gaussian ML with ideal obs:")
+println("   status: $status")
+println("   error:  $enorm")
+@test status == :Optimal
+@test enorm < 1e-6
+
+status, enorm, _, _, _ = test_qst_gauss_ml()
+println("Gaussian ML with real obs:")
+println("   status: $status")
+println("   error:  $enorm")
+@test status == :Optimal
+@test enorm < 1e-1
+
+status, enorm, _, _, _ = test_qst_ml()
+println("Strict ML with real obs:")
+println("   status: $status")
+println("   error:  $enorm")
+@test status == :Optimal
+@test enorm < 1e-2
