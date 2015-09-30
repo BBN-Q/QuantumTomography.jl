@@ -18,16 +18,10 @@ import Distributions.fit
 
 export fit,
        predict,
-       GaussMLStateTomo,
+       LSStateTomo,
        MLStateTomo
 
 using Convex, Distributions, SchattenNorms, SCS, QuantumInfo
-
-#function ketbra(a,b,d)
-#    m = spzeros(Float64,d,d)
-#    m[a+1,b+1] = 1.0
-#    return m
-#end
 
 function build_state_predictor(obs::Vector{Matrix})
     return reduce(vcat,[vec(o)' for o in obs])
@@ -44,28 +38,18 @@ function qst_lsq(pred::Matrix, means::Vector{Float64}, vars::Vector{Float64}; me
     d = Int(size(pred,1) |> sqrt |> round)
     if method==:OLS
         return reshape(pred\means,d,d)
-    elseif methods==:GLS
+    elseif method==:GLS
         return reshape((sqrt(vars)\pred)\means,d,d)
     else
         error("Unrecognized method for least squares state tomography")
     end
 end
 
-#type LSStateTomography
-#  pred::Matrix
-#end
-
-#function fit(method::LSStateTomography,means::Vector,vars::Vector)
-#end
-
-#function fit(method::GLSStateTomography,means::Vector,vars::Vector)
-#end
-
-type GaussMLStateTomo
+type LSStateTomo
     inputdim::Int
     outputdim::Int
     realpred::Matrix
-    function GaussMLStateTomo(obs::Vector)
+    function LSStateTomo(obs::Vector)
         pred = build_state_predictor(obs)
         outputdim = size(pred,1)
         inputdim = size(pred,2)
@@ -74,11 +58,11 @@ type GaussMLStateTomo
     end
 end
 
-function predict(method::GaussMLStateTomo,state)
+function predict(method::LSStateTomo,state)
     (method.realpred[:,1:round(Int,end/2)]+1im*method.realpred[:,round(Int,end/2)+1:end])*vec(state)
 end
 
-function fit(method::GaussMLStateTomo,
+function fit(method::LSStateTomo,
              means::Vector{Float64}, 
              vars::Vector{Float64};
              solver = SCSSolver(verbose=0, max_iters=10_000, eps = 1e-8))
@@ -97,18 +81,17 @@ function fit(method::GaussMLStateTomo,
     ρr = Variable(d,d)
     ρi = Variable(d,d)
 
-    # TODO: use quad_form instead of vecnorm? Have 1/vars are diagonal quadratic form
-    problem = minimize( vecnorm( (means - method.realpred*[vec(ρr); vec(ρi)]) .* ivars, 2)^2 )
+    constraints = trace(ρr) == 1
+    constraints += trace(ρi) == 0
+    constraints += isposdef([ρr ρi; -ρi ρr])
 
-    problem.constraints += trace(ρr) == 1
-    problem.constraints += trace(ρi) == 0
-    problem.constraints += isposdef([ρr ρi; -ρi ρr])
+    # TODO: use quad_form instead of vecnorm? Have 1/vars are diagonal quadratic form
+    problem = minimize( vecnorm( (means - method.realpred*[vec(ρr); vec(ρi)]) .* ivars, 2)^2, constraints )
 
     solve!(problem, solver)
 
     return (ρr.value - 1im*ρi.value), problem.optval, problem.status
 end
-
 
 type MLStateTomo
     effects::Vector
@@ -132,29 +115,47 @@ end
 
 function fit(method::MLStateTomo,
              counts::Vector{Int};
-             solver = SCSSolver(verbose=0, max_iters=10_000, eps = 1e-8))
+             solver = SCSSolver(verbose=0, max_iters=10_000, eps = 1e-8, warm_start=true))
 
     if length(method.effects) != length(counts)
-        error("Vector of counts and vector of effects must have same length, but length(counts) == $(length(counts)) != $(length(methods.effects))")
+        error("Vector of counts and vector of effects must have same length, but length(counts) == $(length(counts)) != $(length(method.effects))")
     end
     d = method.dim
 
     ρr = Variable(d,d)
     ρi = Variable(d,d)
-    ρ  = [ρr ρi; -ρi ρr]
 
-    obj = counts[1] * log(trace(ρ*SchattenNorms.ϕ(method.effects[1])))
+    ϕ(m) = [real(m) -imag(m); imag(m) real(m)];
+    ϕ(r,i) = [r i; -i r]
+    #ϕinvr(m) = m[1:round(Int,end/2),1:round(Int,end/2)]
+
+    obj = counts[1] * log(trace([ρr ρi; -ρi ρr]*ϕ(method.effects[1])'))
     for i=2:length(method.effects)
-        obj += counts[i] * log(trace(ρ*SchattenNorms.ϕ(method.effects[i])))
+        obj += counts[i] * log(trace([ρr ρi; -ρi ρr]*ϕ(method.effects[i])'))
     end
 
-    problem = maximize( obj )
+    #obj = counts[1] * log(trace(ρr*method.effects[1]))
+    #for i=2:length(method.effects)
+    #    obj += counts[i] * log(trace(ρr*method.effects[i]))
+    #end
 
-    problem.constraints += trace(ρr) == 1
-    problem.constraints += trace(ρi) == 0
-    problem.constraints += isposdef(ρ)
+    #obj = sum([ count[i] * log(trace(ρr*method.effects[i])) for i in 1:length(method.effects)])
+    #obj += .0001 * logdet(ρ)
+
+    println(obj)
+
+    constraints = trace(ρr) == 1
+    #constraints += trace(ρi) == 0
+    constraints += isposdef([ρr ρi; -ρi ρr])
+
+    problem = maximize(obj, constraints)
+
+    println(problem)
 
     solve!(problem, solver)
+
+    return ρr.value+im*ρi.value, problem.optval, problem.status
+    #return (ρr.value - 1im*ρi.value), problem.optval, problem.status
 end
 
 type HedgedMLStateTomo
@@ -164,7 +165,7 @@ end
 
 function fit(method::HedgedMLStateTomo,counts::Vector{Int})
     if length(method.effects) != length(counts)
-        error("Vector of counts and vector of effects must have same length, but length(counts) == $(length(counts)) != $(length(methods.effects))")
+        error("Vector of counts and vector of effects must have same length, but length(counts) == $(length(counts)) != $(length(method.effects))")
     end
     if β<=0
         error("Hedging penalty must be positive")
@@ -189,14 +190,14 @@ function qpt_lsq(pred::Matrix, means::Vector{Float64}, vars::Vector{Float64}; me
     d = Int(shape(pred,1) |> sqrt |> round)
     if method==:OLS
         return reshape(pred\means,d,d)
-    elseif methods==:GLS
+    elseif method==:GLS
         return reshape((sqrt(vars)\pred)\means,d,d)
     else
         error("Unrecognized method for least squares process tomography")
     end
 end
 
-type GaussMLProcessTomo
+type LSProcessTomo
     inputdim::Int
     outputdim::Int
     realpred::Vector{AbstractMatrix}

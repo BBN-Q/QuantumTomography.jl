@@ -9,11 +9,11 @@ using Base.Test,
 
 #include("../src/QuantumTomography.jl")
 
-function test_qst_gauss_ml_ideal()
+function test_qst_ls_ideal()
     obs = Matrix[ (complex(Pauli(i))+eye(2))/2 for i in 1:3 ]
     append!(obs, Matrix[ (-complex(Pauli(i))+eye(2))/2 for i in 1:3 ])
 
-    tomo = GaussMLStateTomo(obs)
+    tomo = LSStateTomo(obs)
 
     ρ = .98*projector(rand(FubiniStudyPureState(2)))+.02*rand(HilbertSchmidtMixedState(2))
     
@@ -27,12 +27,12 @@ function test_qst_gauss_ml_ideal()
     return status, trnorm(ρ-ρest), obj, ρ, ρest
 end
 
-function test_qst_gauss_ml(n=10_000)
+function test_qst_ls(n=10_000)
     
     obs = Matrix[ (complex(Pauli(i))+eye(2))/2 for i in 1:3 ]
     append!(obs, Matrix[ (-complex(Pauli(i))+eye(2))/2 for i in 1:3 ])
 
-    tomo = GaussMLStateTomo(obs)
+    tomo = LSStateTomo(obs)
 
     ρ = .98*projector(rand(FubiniStudyPureState(2)))+.02*rand(HilbertSchmidtMixedState(2))
     
@@ -50,18 +50,19 @@ end
 function test_qst_ml(n=10_000)
     obs = Matrix[ (complex(Pauli(i))+eye(2))/2 for i in 1:3 ]
     append!(obs, Matrix[ (-complex(Pauli(i))+eye(2))/2 for i in 1:3 ])
+    #obs = map(real,Matrix[ (eye(2)+complex(Pauli(1)))/2, (eye(2)+complex(Pauli(2)))/2 ])
+    #append!(obs, map(real,Matrix[ (eye(2)-complex(Pauli(1)))/2, (eye(2)-complex(Pauli(2)))/2 ]))
 
     tomo = MLStateTomo(obs)
 
-    ρ = .98*projector(rand(FubiniStudyPureState(2)))+.02*rand(HilbertSchmidtMixedState(2))
+    ρ = [1. 0.; 0. 0.] #.98*projector(rand(FubiniStudyPureState(2)))+.02*rand(HilbertSchmidtMixedState(2))
     
     ideal_means = real(predict(tomo,ρ))
 
-    samples = [rand(Binomial(n,μ)) for μ in ideal_means[1:3]]
-    append!(samples,10_000-samples)
+    #samples = [rand(Binomial(n,μ)) for μ in ideal_means[1:3]]
+    samples = Int[ round(Int,n*μ) for μ in ideal_means[1:3]]
+    append!(samples,n-samples)
 
-    println(samples)
-    
     ρest, obj, status = fit(tomo, samples, solver = SCSSolver(verbose=2))
 
     println(trnorm(ρ-ρest))
@@ -113,23 +114,29 @@ function test_trb(da,db)
     norm(trace(r,[da,db],2)-mat(trb_sop(da,db)*vec(r)),1)
 end
 
-status, enorm, _, _, _ = test_qst_gauss_ml_ideal()
-println("Gaussian ML with ideal obs:")
-println("   status: $status")
-println("   error:  $enorm")
+status, enorm, obj, ρ, ρest = test_qst_ls_ideal()
+println("Constrained LS with ideal obs:")
+println("   status    : $status")
+println("   error     : $enorm")
+println("   true state: $ρ")
+println("   estimate  : $ρest")
 @test status == :Optimal
 @test enorm < 1e-6
 
-status, enorm, _, _, _ = test_qst_gauss_ml()
-println("Gaussian ML with real obs:")
-println("   status: $status")
-println("   error:  $enorm")
+status, enorm, _, ρ, ρest = test_qst_ls()
+println("Constrained LS with realistic obs:")
+println("   status    : $status")
+println("   error     : $enorm")
+println("   true state: $ρ")
+println("   estimate  : $ρest")
 @test status == :Optimal
 @test enorm < 1e-1
 
-status, enorm, _, _, _ = test_qst_ml()
+status, enorm, obj, ρ, ρest = test_qst_ml()
 println("Strict ML with real obs:")
-println("   status: $status")
-println("   error:  $enorm")
+println("   status    : $status")
+println("   error     : $enorm")
+println("   true state: $ρ")
+println("   estimate  : $ρest")
 @test status == :Optimal
 @test enorm < 1e-2
