@@ -1,5 +1,6 @@
 using Base.Test,
       Cliffords, 
+      #ConicNonlinearBridge,
       Distributions,
       QuantumInfo, 
       QuantumTomography, 
@@ -7,67 +8,69 @@ using Base.Test,
       SchattenNorms,
       SCS
 
-#include("../src/QuantumTomography.jl")
-
-function test_qst_ls_ideal()
+function qst_test_setup()
     obs = Matrix[ (complex(Pauli(i))+eye(2))/2 for i in 1:3 ]
     append!(obs, Matrix[ (-complex(Pauli(i))+eye(2))/2 for i in 1:3 ])
 
-    tomo = LSStateTomo(obs)
-
     ρ = .98*projector(rand(FubiniStudyPureState(2)))+.02*rand(HilbertSchmidtMixedState(2))
-    
-    ideal_means = real(predict(tomo,ρ))
 
-    samples = ideal_means
-    sample_mean = samples
-    
-    ρest, obj, status = fit(tomo, sample_mean, ones(length(samples)));
-    
-    return status, trnorm(ρ-ρest), obj, ρ, ρest
+    return ρ, obs
 end
 
-function test_qst_ls(n=10_000)
-    
-    obs = Matrix[ (complex(Pauli(i))+eye(2))/2 for i in 1:3 ]
-    append!(obs, Matrix[ (-complex(Pauli(i))+eye(2))/2 for i in 1:3 ])
+function test_qst_freels(ρ, obs; n=10_000, ideal=false)
+    #obs = Matrix[ (complex(Pauli(i))+eye(2))/2 for i in 1:3 ]
+    #append!(obs, Matrix[ (-complex(Pauli(i))+eye(2))/2 for i in 1:3 ])
 
-    tomo = LSStateTomo(obs)
+    tomo = FreeLSStateTomo(obs)
 
-    ρ = .98*projector(rand(FubiniStudyPureState(2)))+.02*rand(HilbertSchmidtMixedState(2))
+    #ρ = .98*projector(rand(FubiniStudyPureState(2)))+.02*rand(HilbertSchmidtMixedState(2))
     
     ideal_means = real(predict(tomo,ρ))
-    
-    samples = [ rand(Binomial(n,μ))/n for μ in ideal_means ]
+
+    samples = ideal ? ideal_means : [ rand(Binomial(n,μ))/n for μ in ideal_means ]
     sample_mean = samples
     sample_var  = n*(samples - samples.^2)/(n-1)
-
-    ρest, obj, status = fit(tomo, sample_mean, sample_var);
     
-    return status, trnorm(ρ-ρest), obj, ρ, ρest
+    ρest, obj, status = fit(tomo, sample_mean, ideal ? ones(length(samples)) : sample_var);
+    
+    return status, trnorm(ρ-ρest), obj, ρest
 end
 
-function test_qst_ml(n=10_000)
-    obs = Matrix[ (complex(Pauli(i))+eye(2))/2 for i in 1:3 ]
-    append!(obs, Matrix[ (-complex(Pauli(i))+eye(2))/2 for i in 1:3 ])
-    #obs = map(real,Matrix[ (eye(2)+complex(Pauli(1)))/2, (eye(2)+complex(Pauli(2)))/2 ])
-    #append!(obs, map(real,Matrix[ (eye(2)-complex(Pauli(1)))/2, (eye(2)-complex(Pauli(2)))/2 ]))
+function test_qst_ls(ρ, obs; n=10_000, ideal=false)
+    #obs = Matrix[ (complex(Pauli(i))+eye(2))/2 for i in 1:3 ]
+    #append!(obs, Matrix[ (-complex(Pauli(i))+eye(2))/2 for i in 1:3 ])
 
-    tomo = MLStateTomo(obs)
+    tomo = LSStateTomo(obs)
 
-    ρ = [1. 0.; 0. 0.] #.98*projector(rand(FubiniStudyPureState(2)))+.02*rand(HilbertSchmidtMixedState(2))
+    #ρ = .98*projector(rand(FubiniStudyPureState(2)))+.02*rand(HilbertSchmidtMixedState(2))
     
     ideal_means = real(predict(tomo,ρ))
 
-    #samples = [rand(Binomial(n,μ)) for μ in ideal_means[1:3]]
-    samples = Int[ round(Int,n*μ) for μ in ideal_means[1:3]]
+    samples = ideal ? ideal_means : [ rand(Binomial(n,μ))/n for μ in ideal_means ]
+    sample_mean = samples
+    sample_var  = n*(samples - samples.^2)/(n-1)
+    
+    ρest, obj, status = fit(tomo, sample_mean, ideal ? ones(length(samples)) : sample_var);
+    
+    return status, trnorm(ρ-ρest), obj, ρest
+end
+
+function test_qst_ml(ρ, obs; n=10_000, β=0.0, ideal=false)
+    #obs = Matrix[ (complex(Pauli(i))+eye(2))/2 for i in 1:3 ]
+    #append!(obs, Matrix[ (-complex(Pauli(i))+eye(2))/2 for i in 1:3 ])
+
+    tomo = MLStateTomo(obs,β)
+
+    #ρ = .98*projector(rand(FubiniStudyPureState(2)))+.02*rand(HilbertSchmidtMixedState(2))
+    
+    ideal_means = real(predict(tomo,ρ))
+
+    samples = ideal ? Int[ round(Int,n*μ) for μ in ideal_means[1:3]] : [rand(Binomial(n,μ)) for μ in ideal_means[1:3]]
     append!(samples,n-samples)
 
-    ρest, obj, status = fit(tomo, samples, solver = SCSSolver(verbose=2))
+    ρest, obj, status = fit(tomo, samples, solver = SCSSolver(verbose=0, max_iters = 100_000, eps=1e-8))
 
-    println(trnorm(ρ-ρest))
-    
-    return status, trnorm(ρ-ρest), obj, ρ, ρest
+    return status, trnorm(ρ-ρest), obj, ρest
 end
 
 function test_qpt_ml(n=1000;ρ=zeros(Float64,0,0))
@@ -114,8 +117,10 @@ function test_trb(da,db)
     norm(trace(r,[da,db],2)-mat(trb_sop(da,db)*vec(r)),1)
 end
 
-status, enorm, obj, ρ, ρest = test_qst_ls_ideal()
-println("Constrained LS with ideal obs:")
+ρ, obs = qst_test_setup()
+
+status, enorm, obj, ρest = test_qst_ls(ρ, obs, ideal=true)
+println("Constrained LS with ∞ counts:")
 println("   status    : $status")
 println("   error     : $enorm")
 println("   true state: $ρ")
@@ -123,8 +128,8 @@ println("   estimate  : $ρest")
 @test status == :Optimal
 @test enorm < 1e-6
 
-status, enorm, _, ρ, ρest = test_qst_ls()
-println("Constrained LS with realistic obs:")
+status, enorm, _, ρest = test_qst_ls(ρ, obs, ideal=false)
+println("Constrained LS with 10_000 counts:")
 println("   status    : $status")
 println("   error     : $enorm")
 println("   true state: $ρ")
@@ -132,11 +137,38 @@ println("   estimate  : $ρest")
 @test status == :Optimal
 @test enorm < 1e-1
 
-status, enorm, obj, ρ, ρest = test_qst_ml()
-println("Strict ML with real obs:")
+status, enorm, _, ρest = test_qst_ml(ρ, obs, ideal=true)
+println("Strict ML with mean counts:")
 println("   status    : $status")
 println("   error     : $enorm")
 println("   true state: $ρ")
 println("   estimate  : $ρest")
-@test status == :Optimal
+#@test status == :Optimal
 @test enorm < 1e-2
+
+status, enorm, _, ρest = test_qst_ml(ρ, obs, ideal=false)
+println("Strict ML with 10_000 counts:")
+println("   status    : $status")
+println("   error     : $enorm")
+println("   true state: $ρ")
+println("   estimate  : $ρest")
+#@test status == :Optimal
+@test enorm < 2e-2
+
+status, enorm, _, ρest = test_qst_ml(ρ, obs, ideal=true)
+println("Hedged ML with mean counts and β=0.04:")
+println("   status    : $status")
+println("   error     : $enorm")
+println("   true state: $ρ")
+println("   estimate  : $ρest")
+#@test status == :Optimal
+@test enorm < 2e-2
+
+status, enorm, _, ρest = test_qst_ml(ρ, obs, ideal=false)
+println("Hedged ML with 10_000 counts and β=0.04:")
+println("   status    : $status")
+println("   error     : $enorm")
+println("   true state: $ρ")
+println("   estimate  : $ρest")
+#@test status == :Optimal
+@test enorm < 2e-2

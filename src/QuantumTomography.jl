@@ -18,10 +18,11 @@ import Distributions.fit
 
 export fit,
        predict,
+       FreeLSStateTomo,
        LSStateTomo,
        MLStateTomo
 
-using Convex, Distributions, SchattenNorms, SCS, QuantumInfo
+using Convex, Distributions, SCS, QuantumInfo
 
 function build_state_predictor(obs::Vector{Matrix})
     return reduce(vcat,[vec(o)' for o in obs])
@@ -32,19 +33,58 @@ function build_process_predictor(obs::Vector{Matrix}, prep::Vector{Matrix})
     return reduce(vcat, map(m->vec(m)', vec(exps)) )
 end
 
-# TODO: What about the unobservale traceful component?
-#       If we assume normalized states, we can add a dummy predictor row, mean and variance.
-function qst_lsq(pred::Matrix, means::Vector{Float64}, vars::Vector{Float64}; method=:OLS)
-    d = Int(size(pred,1) |> sqrt |> round)
+"""
+Free (unconstrained) least-squares state tomography algorithm. It is
+constructed from a collection of observables corresponding to
+measurements that are performed on the state being reconstructed.
+"""
+type FreeLSStateTomo
+    inputdim::Int
+    outputdim::Int
+    pred::Matrix
+    function LSStateTomo(obs::Vector)
+        pred = build_state_predictor(obs)
+        outputdim = size(pred,1)
+        inputdim = size(pred,2)
+        new(inputdim,outputdim,pred)
+    end
+end
+
+"""
+Predict outcomes of a tomography experiment for a given state (density matrix).
+"""
+function predict(method::FreeLSStateTomo, state)
+    method.pred*vec(state)
+end
+
+"""
+Reconstruct a state from observations (i.e., perform state tomography).
+"""
+function fit(method::FreeLSStateTomo, means::Vector{Float64}, vars::Vector{Float64}=-ones(length(means)); algorithm=:OLS)
+    if length(means) != method.outputdim
+        error("The number of expected means does not match the required number of experiments")
+    end
+    d = round(Int, method.inputdim |> sqrt)
     if method==:OLS
-        return reshape(pred\means,d,d)
+        reg = pred\means
+        return reshape(reg,d,d), norm(pred*reg-means,2)/length(means), :Optimal
     elseif method==:GLS
-        return reshape((sqrt(vars)\pred)\means,d,d)
+        if any(vars<0)
+            error("Variances must be positive for generalized least squares.")
+        end
+        reg = (sqrt(vars)\pred)\means
+        return reshape((sqrt(vars)\pred)\means,d,d), sqrt(dot(pred*reg-means,diagm(vars)\(pred*reg-means)))/length(means), :Optimal
     else
         error("Unrecognized method for least squares state tomography")
     end
 end
 
+
+"""
+Constrained least-squares state tomography algorithm. It is
+constructed from a collection of observables corresponding to
+measurements that are performed on the state being reconstructed.
+"""
 type LSStateTomo
     inputdim::Int
     outputdim::Int
@@ -93,10 +133,18 @@ function fit(method::LSStateTomo,
     return (ρr.value - 1im*ρi.value), problem.optval, problem.status
 end
 
+"""
+Maximum-likelihood quantum state tomography algorithm. It is
+constructed from a collection of observables corresponding to
+measurements that are performed on the state being reconstructed, as
+well as a hedging factor β. If β=0, no hedging is applied. If β > 0
+either a log determinant or log minimum eigenvalue penalty is applied.
+"""
 type MLStateTomo
     effects::Vector
     dim::Int64
-    function MLStateTomo(v::Vector)
+    β::Float64
+    function MLStateTomo(v::Vector,β=0.0)
         for e in v
             if !ishermitian(e) || !ispossemidef(e) || real(trace(e))>1
                 error("MLStateTomo state tomography is parameterized by POVM effects only.")
@@ -105,7 +153,10 @@ type MLStateTomo
         if !all([size(e,1)==size(e,2) for e in v]) || !all([size(v[1],1)==size(e,1) for e in v]) 
                 error("All effects must be square matrices, and they must have have the same dimension.")
         end
-        new(v,size(v[1],1))
+        if β < 0
+            error("Hedging penalty must be positive.")
+        end
+        new(v,size(v[1],1),β)
     end
 end
 
@@ -127,50 +178,22 @@ function fit(method::MLStateTomo,
 
     ϕ(m) = [real(m) -imag(m); imag(m) real(m)];
     ϕ(r,i) = [r i; -i r]
-    #ϕinvr(m) = m[1:round(Int,end/2),1:round(Int,end/2)]
 
-    obj = counts[1] * log(trace([ρr ρi; -ρi ρr]*ϕ(method.effects[1])'))
+    obj = counts[1] * log(trace([ρr ρi; -ρi ρr]*ϕ(method.effects[1])))
     for i=2:length(method.effects)
-        obj += counts[i] * log(trace([ρr ρi; -ρi ρr]*ϕ(method.effects[i])'))
+        obj += counts[i] * log(trace([ρr ρi; -ρi ρr]*ϕ(method.effects[i])))
     end
-
-    #obj = counts[1] * log(trace(ρr*method.effects[1]))
-    #for i=2:length(method.effects)
-    #    obj += counts[i] * log(trace(ρr*method.effects[i]))
-    #end
-
-    #obj = sum([ count[i] * log(trace(ρr*method.effects[i])) for i in 1:length(method.effects)])
-    #obj += .0001 * logdet(ρ)
-
-    println(obj)
+    #obj += method.β!=0.0 ? method.β*logdet([ρr ρi; -ρi ρr]) : 0.0
+    obj += method.β!=0.0 ? method.β*log(lambdamin([ρr ρi; -ρi ρr])) : 0.0
 
     constraints = trace(ρr) == 1
-    #constraints += trace(ρi) == 0
     constraints += isposdef([ρr ρi; -ρi ρr])
 
     problem = maximize(obj, constraints)
 
-    println(problem)
-
     solve!(problem, solver)
 
-    return ρr.value+im*ρi.value, problem.optval, problem.status
-    #return (ρr.value - 1im*ρi.value), problem.optval, problem.status
-end
-
-type HedgedMLStateTomo
-    effects::Vector{AbstractMatrix}
-    β::Float64
-end
-
-function fit(method::HedgedMLStateTomo,counts::Vector{Int})
-    if length(method.effects) != length(counts)
-        error("Vector of counts and vector of effects must have same length, but length(counts) == $(length(counts)) != $(length(method.effects))")
-    end
-    if β<=0
-        error("Hedging penalty must be positive")
-    end
-    # TODO
+    return ρr.value-im*ρi.value, problem.optval, problem.status
 end
 
 function trb_sop(da,db)
