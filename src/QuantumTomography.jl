@@ -12,6 +12,7 @@
 #     See the License for the specific language governing permissions and
 #     limitations under the License.
 
+
 module QuantumTomography
 
 import Distributions.fit
@@ -273,8 +274,6 @@ function qpt_ml(obs::Vector{Matrix}, states::Vector{Matrix}, means::Vector{Float
     pred = build_process_predictor(obs, prep)
     return qpt_ml(pred, meas, vars)
 end
-
-include("utilities.jl")
 
 end # module
 

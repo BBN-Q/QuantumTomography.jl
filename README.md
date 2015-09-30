@@ -1,39 +1,32 @@
 # QuantumTomography.jl
 
-This is a package that provides basic routines to perform tomography
-of finite dimensional systems.
-
-The tomography technique used relies on the assumption that the
-ensemble of observations is large enough so that the estimated means
-have a Gaussian distribution (to good approximation).  This assumption
-is not essential, but it is convenient for the use of [Convex.jl](https://github.com/JuliaOpt/Convex.jl) as
-a solver. 
+This is a package that provides basic routines to perform quantum
+tomography of finite dimensional systems.
 
 Given the estimated means and variances of the observations,
 tomography proceeds by finding the state, process, or measurements
-that minimizes the chi-squared statistic under the constraints for
-"physicality" of those objects. Namely, states are constrained to be
-given by positive semidefinite matrices with unit trace, processes are
-constrained to be given by the Choi matrix of a completely positive,
-trace perserving map, and measurements are constrained to be given by
-POVM elements.
+that optimize some figure of merit -- either the likelihood or the χ²
+statistic -- often with the additional constraint the reconstruction
+be physical (e.g., correspond to a valid quantum mechanical object).
+
+Namely, states are constrained to be given by positive semidefinite
+matrices with unit trace, processes are constrained to be given by the
+Choi matrix of a completely positive, trace perserving map, and
+measurements are constrained to be given by POVM elements.
 
 ## API
 
+Each different tomography method is associated with a type. Objects of
+this type must be instantiated before reconstruction can be performed
+with a call to `fit()`. These objects are also needed to make
+predictions about tomography experiments with `predict()`. Currently available
+tomography methods are
 
-+ `state_tomo_lsq()`: state tomography without constrait to physical states
++ `FreeLSStateTomo`: Unconstrained least-squares state tomography.
 
-+ `state_tomo_ml()`: state tomography constrainted to physical states (positive and unit trace)
++ `LSStateTomo`: Least-squares state tomography constrained to yield physical states.
 
-+ `proc_tomo_lsq()`: process tomography with constraint to physical processes
-
-+ `proc_tomo_ml()` :
-
-+ `meas_tomo_lsq()`:
-
-+ `meas_tomo_ml()`:
-
-+ `nearestu()` : computes the closest CP unitary to a given CP map according to the metric discussed in by Daniel Oi in [Phys. Rev. Lett. 91, 067902 (2003)](http://journals.aps.org/prl/abstract/10.1103/PhysRevLett.91.067902)
++ `MLStateTomo`: Maximum-likelihood state tomography (including hedged maximum-likelihood). 
 
 ## Examples
 
@@ -41,26 +34,30 @@ In order to perform quantum state tomography, we need an
 informationally complete set of observables. In the case of a single
 qubit, that can be given by the 3 Pauli operators.
 ```julia
-obs = Matrix[pauli(1), pauli(2), pauli(3)]
+using Cliffords
+obs = Matrix[Pauli(1), Pauli(2), Pauli(3)]
+tomo = LSStateTomo(obs)
 ```
 We choose some random pure state to generate the ficticious experiment 
-```julia    
-\psi = randn(2)+1im*randn(2); \psi=\psi/norm(\psi,2)
-ρ = psi*psi'
-```
-We can compute the expectation values of the observables for this state using Born's rule
 ```julia
-ideal_means = Float64[ real(trace(o*\rho)) for o in obs ]
+using RandomQuantum, QuantumInfo
+ψ  = rand(FubiniStudyPureState(2)); 
+normalize!(ψ)
+ρ = projector(ψ)
 ```
-With these in hand, we can finally reconstruct `\rho` from the observed expectation values and variances.
+Predict the expectation values of the observations for some hypothesized ρ
+```julia
+ideal_means = predict(tomo, ρ)
 ```
-qst_ml(obs, ideal_means, ideal_vars);
+With these in hand, we can finally reconstruct `ρ` from the observed expectation values and variances.
+```
+fit(tomo, ideal_means + σ.*randn(3), σ.^2)
 ```
 
 ## TODO
 
-- [ ] Implement proper ML tomography without Gaussian assumption
-- [ ] Implement hedged ML tomography
+- [ ] Implement least-squares and ML process tomography
+- [ ] Implement compressed sensing state and process tomography
 
 ## Copywrite
 
