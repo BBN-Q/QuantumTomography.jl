@@ -65,8 +65,8 @@ function test_qst_ml(ρ, obs; n=10_000, β=0.0, ideal=false)
     
     ideal_means = real(predict(tomo,ρ))
 
-    samples = ideal ? Int[ round(Int,n*μ) for μ in ideal_means[1:3]] : [rand(Binomial(n,μ)) for μ in ideal_means[1:3]]
-    append!(samples,n-samples)
+    samples = ideal ? ideal_means[1:3] : Float64[rand(Binomial(n,μ))/n for μ in ideal_means[1:3]]
+    append!(samples,1-samples)
 
     ρest, obj, status = fit(tomo, samples, solver = SCSSolver(verbose=0, max_iters = 100_000, eps=1e-8))
 
