@@ -166,12 +166,13 @@ function predict(method::MLStateTomo,ρ)
 end
 
 function fit(method::MLStateTomo,
-             counts::Vector{Int};
-             solver = SCSSolver(verbose=0, max_iters=10_000, eps = 1e-8, warm_start=true))
+             freq::Vector;
+             solver = SCSSolver(verbose=0, max_iters=10_000, eps = 1e-8))
 
-    if length(method.effects) != length(counts)
+    if length(method.effects) != length(freq)
         error("Vector of counts and vector of effects must have same length, but length(counts) == $(length(counts)) != $(length(method.effects))")
     end
+
     d = method.dim
 
     ρr = Variable(d,d)
@@ -180,9 +181,9 @@ function fit(method::MLStateTomo,
     ϕ(m) = [real(m) -imag(m); imag(m) real(m)];
     ϕ(r,i) = [r i; -i r]
 
-    obj = counts[1] * log(trace([ρr ρi; -ρi ρr]*ϕ(method.effects[1])))
+    obj = freq[1] * log(trace([ρr ρi; -ρi ρr]*ϕ(method.effects[1])))
     for i=2:length(method.effects)
-        obj += counts[i] * log(trace([ρr ρi; -ρi ρr]*ϕ(method.effects[i])))
+        obj += freq[i] * log(trace([ρr ρi; -ρi ρr]*ϕ(method.effects[i])))
     end
     #obj += method.β!=0.0 ? method.β*logdet([ρr ρi; -ρi ρr]) : 0.0
     obj += method.β!=0.0 ? method.β*log(lambdamin([ρr ρi; -ρi ρr])) : 0.0
