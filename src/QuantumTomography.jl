@@ -18,6 +18,7 @@ module QuantumTomography
 import Distributions.fit
 
 export fit,
+       fitB,
        predict,
        FreeLSStateTomo,
        LSStateTomo,
@@ -165,9 +166,9 @@ function predict(method::MLStateTomo,ρ)
     Float64[ real(trace(ρ*e)) for e in method.effects]
 end
 
-function fit(method::MLStateTomo,
+function fitA(method::MLStateTomo,
              freq::Vector;
-             solver = SCSSolver(verbose=0, max_iters=10_000, eps = 1e-8))
+             solver = SCSSolver(verbose=0, max_iters=100_000, eps = 1e-8))
 
     if length(method.effects) != length(freq)
         error("Vector of counts and vector of effects must have same length, but length(counts) == $(length(counts)) != $(length(method.effects))")
@@ -175,8 +176,9 @@ function fit(method::MLStateTomo,
 
     d = method.dim
 
-    ρr = Variable(d,d)
+    ρr = Semidefinite(d) #Variable(d,d)
     ρi = Variable(d,d)
+    #p  = Variable(length(method.effects),Positive())
 
     ϕ(m) = [real(m) -imag(m); imag(m) real(m)];
     ϕ(r,i) = [r i; -i r]
@@ -189,6 +191,9 @@ function fit(method::MLStateTomo,
     obj += method.β!=0.0 ? method.β*log(lambdamin([ρr ρi; -ρi ρr])) : 0.0
 
     constraints = trace(ρr) == 1
+    #for i=1:length(method.effects)
+    #    constraints += p[i] == trace([ρr ρi; -ρi ρr]*ϕ(method.effects[i]))/2
+    #end
     constraints += isposdef([ρr ρi; -ρi ρr])
 
     problem = maximize(obj, constraints)
@@ -196,6 +201,87 @@ function fit(method::MLStateTomo,
     solve!(problem, solver)
 
     return ρr.value-im*ρi.value, problem.optval, problem.status
+end
+
+function fitB(method::MLStateTomo,
+             freq::Vector;
+             solver = SCSSolver(verbose=0, max_iters=100_000, eps = 1e-8))
+
+    if length(method.effects) != length(freq)
+        error("Vector of counts and vector of effects must have same length, but length(counts) == $(length(counts)) != $(length(method.effects))")
+    end
+
+    d = method.dim
+
+    ρr = Semidefinite(d) #Variable(d,d)
+    ρi = Variable(d,d)
+    p  = Variable(length(method.effects),Positive())
+
+    ϕ(m) = [real(m) -imag(m); imag(m) real(m)];
+    ϕ(r,i) = [r i; -i r]
+
+    obj = freq[1] * log(p[1])
+    for i=2:length(method.effects)
+        obj += freq[i] * log(p[i])
+    end
+    #obj += method.β!=0.0 ? method.β*logdet([ρr ρi; -ρi ρr]) : 0.0
+    obj += method.β!=0.0 ? method.β*log(lambdamin([ρr ρi; -ρi ρr])) : 0.0
+
+    constraints = trace(ρr) == 1
+    for i=1:length(method.effects)
+        constraints += p[i] == trace([ρr ρi; -ρi ρr]*ϕ(method.effects[i]))/2
+    end
+    constraints += isposdef([ρr ρi; -ρi ρr])
+
+    problem = maximize(obj, constraints)
+
+    solve!(problem, solver)
+
+    return ρr.value-im*ρi.value, problem.optval, problem.status
+end
+
+function R(ρ,E,obs)
+    pr = Float64[real(trace(ρ*Ei)) for Ei in E]
+    R = obs[1]/pr[1]*E[1]/3
+    for i in 2:length(E)
+        R += obs[i]/pr[i]*E[i]/3
+    end
+    R
+end
+
+function LL(ρ,E,obs)
+    pr = Float64[real(trace(ρ*Ei)) for Ei in E]
+    sum(obs.*log(pr))
+end
+
+# TODO: implement MaxLik MaxEnt version for incomplete tomography
+#       Is there a simple way to also use an iterative scheme for hedging?
+function fit(method::MLStateTomo,
+             freq::Vector;
+             ϵ=20,
+             tol=1e-9,
+             maxiter=100_000)
+    iter = 1
+    ρk = eye(Complex128,method.dim)/method.dim
+    status = :Optimal
+    while true
+        ρkm = ρk
+        if iter >= maxiter
+            status = :MaxIter
+            break
+        end
+        # diluted iterative scheme for ML (from PRA 75 042108 2007)
+        Rk = (1+ϵ*R(ρk,method.effects,freq))/(1+ϵ)
+        A_mul_B!(ρk,ρk,(1+ϵ*Rk)/(1+ϵ)) # ρk = ρk * (1+ϵRk)/(1+ϵ)
+        A_mul_B!(ρk,(1+ϵ*Rk)/(1+ϵ),ρk) # ρk = (1+ϵRk) * ρk/(1+ϵ)
+        normalize!(ρk) 
+        #if vecnorm(ρk-ρkm)/method.dim^2 < tol
+        #    status = :Optimal
+        #    break
+        #end
+        iter += 1
+    end
+    return ρk, LL(ρk,method.effects,freq), status
 end
 
 function trb_sop(da,db)
