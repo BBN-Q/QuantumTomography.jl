@@ -117,8 +117,8 @@ for k = 1:kmax
     # println("   error     : $enorm")
     # println("   true state: $ρ")
     # println("   estimate  : $ρest")
-    #@test status == :Optimal
-    #@test enorm < 1e-6
+    @test status == :Optimal
+    @test enorm < 1e-6
     
     status, enorm, _, ρest = test_qst_ls(ρ, obs, ideal=false)
     result[k,2] = enorm
@@ -127,8 +127,8 @@ for k = 1:kmax
     # println("   error     : $enorm")
     # println("   true state: $ρ")
     # println("   estimate  : $ρest")
-    #@test status == :Optimal
-    #@test enorm < 5e-2
+    @test status == :Optimal
+    @test enorm < 5e-2
     
     status, enorm, _, ρest = test_qst_ml(ρ, obs, ideal=true)
     result[k,3] = enorm
@@ -137,8 +137,8 @@ for k = 1:kmax
     # println("   error     : $enorm")
     # println("   true state: $ρ")
     # println("   estimate  : $ρest")
-    #@test status == :Optimal
-    #@test enorm < 5e-2
+    @test status == :Optimal
+    @test enorm < 5e-2
     
     status, enorm, _, ρest = test_qst_ml(ρ, obs, ideal=false)
     result[k,4] = enorm
@@ -147,8 +147,8 @@ for k = 1:kmax
     # println("   error     : $enorm")
     # println("   true state: $ρ")
     # println("   estimate  : $ρest")
-    #@test status == :Optimal 
-    #@test enorm < 5e-2
+    @test status == :Optimal 
+    @test enorm < 5e-2
     
     status, enorm, _, ρest = test_qst_ml(ρ, obs, β=0.001, ideal=true)
     result[k,5] = enorm
@@ -157,8 +157,8 @@ for k = 1:kmax
     # println("   error     : $enorm")
     # println("   true state: $ρ")
     # println("   estimate  : $ρest")
-    #@test status == :Optimal
-    #@test enorm < 5e-2
+    @test status == :Optimal
+    @test enorm < 5e-2
     
     status, enorm, _, ρest = test_qst_ml(ρ, obs, β=0.001, ideal=false)
     result[k,6] = enorm
@@ -167,10 +167,10 @@ for k = 1:kmax
     # println("   error     : $enorm")
     # println("   true state: $ρ")
     # println("   estimate  : $ρest")
-    #@test status == :Optimal
-    #@test enorm < 5e-2
+    @test status == :Optimal
+    @test enorm < 5e-2
     
     #println(result[k,:])
 end
 
-println(result)
+#println(result)
