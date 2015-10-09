@@ -253,39 +253,38 @@ function LL(ρ,E,obs)
     sum(obs.*log(pr))
 end
 
-# TODO: implement MaxLik MaxEnt version for incomplete tomography
-#       Is there a simple way to also use an iterative scheme for hedging?
 function fit(method::MLStateTomo,
              freq::Vector;
              δ=.005, # a more natural parameterization of "dilution"
+             λ=0.0,  # entropy penalty
              tol=1e-9,
-             maxiter=100_000)
+             maxiter=100_000,
+             ρ0 = eye(Complex128,method.dim))
     ϵ=1/δ 
     iter = 1
-    ρk  = eye(Complex128,method.dim)/method.dim
+    ρk = copy(ρ0)
     ρkm = Array(Complex128,method.dim,method.dim)
     status = :Optimal
-    record = zeros(maxiter)
-    fill!(record,-1)
     while true
         copy!(ρkm,ρk)
         if iter >= maxiter
             status = :MaxIter
             break
         end
-        # diluted iterative scheme for ML (from PRA 75 042108 2007)
-        Rk = (1+ϵ*R(ρk,method.effects,freq))/(1+ϵ)
-        A_mul_B!(ρk,ρk,(1+ϵ*Rk)/(1+ϵ)) # ρk = ρk * (1+ϵRk)/(1+ϵ)
-        A_mul_B!(ρk,(1+ϵ*Rk)/(1+ϵ),ρk) # ρk = (1+ϵRk) * ρk/(1+ϵ)
+        # diluted iterative scheme for ML (from PRA 75 042108 2007) 
+        Tk = λ > 0.0 ? 
+             (1+ϵ*(R(ρk,method.effects,freq)-eye(method.dim)-λ*(logm(ρk)-trace(ρk*logm(ρk)))))/(1+ϵ) : 
+             (1+ϵ*R(ρk,method.effects,freq))/(1+ϵ)
+        A_mul_B!(ρk,ρk,(1+ϵ*Tk)/(1+ϵ)) # ρk = ρk * (1+ϵRk)/(1+ϵ)
+        A_mul_B!(ρk,(1+ϵ*Tk)/(1+ϵ),ρk) # ρk = (1+ϵRk) * ρk/(1+ϵ)
         normalize!(ρk) 
-        record[iter] = snorm(ρk-ρkm,1)
         if vecnorm(ρk-ρkm)/method.dim^2 < tol
             status = :Optimal
             break
         end
         iter += 1
     end
-    return ρk, LL(ρk,method.effects,freq), status, record
+    return ρk, LL(ρk,method.effects,freq), status
 end
 
 function trb_sop(da,db)

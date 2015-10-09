@@ -26,16 +26,23 @@ tomography methods are
 
 + `LSStateTomo`: Least-squares state tomography constrained to yield physical states.
 
-+ `MLStateTomo`: Maximum-likelihood state tomography (including hedged maximum-likelihood). 
++ `MLStateTomo`: Maximum-likelihood state tomography (including the option for entropy maximization as well). 
 
 ## Examples
 
+### Constrained least-squares tomography
+
 In order to perform quantum state tomography, we need an
-informationally complete set of observables. In the case of a single
-qubit, that can be given by the 3 Pauli operators.
+informationally complete set of measurement effects. In the case of a single
+qubit, that can be given by the eigenstates of the 3 Pauli operators.
 ```julia
 using Cliffords
-obs = Matrix[Pauli(1), Pauli(2), Pauli(3)]
+obs = Matrix[eye(2)+complex(Pauli(1)), 
+             eye(2)+complex(Pauli(2)), 
+             eye(2)+complex(Pauli(3)), 
+	     eye(2)-complex(Pauli(1)),  
+	     eye(2)-complex(Pauli(2)),  
+	     eye(2)-complex(Pauli(3))]/2
 tomo = LSStateTomo(obs)
 ```
 We choose some random pure state to generate the ficticious experiment 
@@ -54,6 +61,21 @@ With these in hand, we can finally reconstruct `ρ` from the observed expectatio
 fit(tomo, ideal_means + σ.*randn(3), σ.^2)
 ```
 
+### Constrained maximum-likelihood and maximum-entropy tomography
+
+Using the data generated above, we can instead choose to reconstruct the state
+by maximizing the likelihood function for some set of binomial observations.
+```
+ml_tomo = MLStateTomo(obs)
+fit(tomo, Float64[Binomial(10_000, μ)/10_000 for μ in ideal_means])
+```
+If the observations are incomplete (in the sense that they do not uniquely specify
+the quantum state), one can still perform reconstruction by maximizing a mixture 
+of the likelihood and the entropy of the resulting state (see PRL 107 020404 2011).
+In this package, this would correspond to 
+```
+fit(tomo, Float64[Binomial(10_000, μ)/10_000 for μ in ideal_means], λ=1e-3)
+```
 ## TODO
 
 - [ ] Implement least-squares and ML process tomography
