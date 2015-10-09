@@ -36,47 +36,75 @@ In order to perform quantum state tomography, we need an
 informationally complete set of measurement effects. In the case of a single
 qubit, that can be given by the eigenstates of the 3 Pauli operators.
 ```julia
-using Cliffords
-obs = Matrix[eye(2)+complex(Pauli(1)),
-             eye(2)+complex(Pauli(2)),
-             eye(2)+complex(Pauli(3)),
-             eye(2)-complex(Pauli(1)), 
-             eye(2)-complex(Pauli(2)), 
-             eye(2)-complex(Pauli(3))]/2
-tomo = LSStateTomo(obs)
+julia> using Cliffords, QuantumTomography
+
+julia> obs = Matrix[ (complex(Pauli(i))+eye(2))/2 for i in 1:3 ];
+
+julia> append!(obs, Matrix[ (-complex(Pauli(i))+eye(2))/2 for i in 1:3 ]);
+
+julia> tomo = LSStateTomo(obs);
 ```
 We choose some random pure state to generate the ficticious experiment 
 ```julia
-using RandomQuantum, QuantumInfo
-ψ  = rand(FubiniStudyPureState(2)); 
-normalize!(ψ)
-ρ = projector(ψ)
+julia> using RandomQuantum, QuantumInfo
+
+julia> ψ  = rand(FubiniStudyPureState(2));
+
+julia> normalize!(ψ)
+2-element Array{Complex{Float64},1}:
+ 0.264298+0.850605im 
+ 0.449897-0.0648884im
+
+julia> ρ = projector(ψ)
+2x2 Array{Complex{Float64},2}:
+  0.793382+0.0im       0.0637123+0.399834im
+ 0.0637123-0.399834im   0.206618+0.0im     
 ```
 Predict the expectation values of the observations for some hypothesized ρ
 ```julia
-ideal_means = predict(tomo, ρ)
+ideal_means = predict(tomo, ρ) |> real
 ```
 With these in hand, we can finally reconstruct `ρ` from the observed expectation values and variances.
-```
-fit(tomo, ideal_means + σ.*randn(3), σ.^2)
+```julia
+julia> fit(tomo, ideal_means, ones(6))
+(
+2x2 Array{Complex{Float64},2}:
+ 0.793382-9.39512e-25im                0.0637123+0.399834im
+         0.0637123-0.399834im  0.206618+7.98287e-25im      ,
+
+3.730685819507896e-11,:Optimal)
 ```
 
 ### Constrained maximum-likelihood and maximum-entropy tomography
 
 Using the data generated above, we can instead choose to reconstruct the state
 by maximizing the likelihood function for some set of binomial observations.
-```
-ml_tomo = MLStateTomo(obs)
-freqs = Float64[Binomial(10_000, μ)/10_000 for μ in ideal_means[1:3]]
-append!(freqs,1-freqs)
-fit(tomo, freqs)
+```julia
+julia> using Distributions
+julia> ml_tomo = MLStateTomo(obs)
+julia> freqs = Float64[rand(Binomial(10_000, μ))/10_000 for μ in ideal_means[1:3]]
+julia> append!(freqs,1-freqs)
+
+julia> fit(ml_tomo, freqs)
+(
+2x2 Array{Complex{Float64},2}:
+ 0.789799-7.92259e-17im                0.0641298+0.401799im
+         0.0641298-0.401799im  0.210201-4.28412e-17im      ,
+
+-1.5215022154657007,:Optimal)
 ```
 If the observations are incomplete (in the sense that they do not uniquely specify
 the quantum state), one can still perform reconstruction by maximizing a mixture 
 of the likelihood and the entropy of the resulting state (see PRL 107 020404 2011).
 In this package, this would correspond to 
-```
-fit(tomo, freqs, λ=1e-3)
+```julia
+julia> fit(ml_tomo, freqs, λ=1e-3)
+(
+2x2 Array{Complex{Float64},2}:
+ 0.789155-2.68147e-17im                0.0639152+0.401322im
+         0.0639152-0.401322im  0.210845-9.18039e-18im      ,
+
+-1.5215005466837999,:Optimal)
 ```
 ## TODO
 
