@@ -1,9 +1,9 @@
 using Base.Test,
       Cliffords, 
-      ConicNonlinearBridge,
+      #ConicNonlinearBridge,
       Distributions,
-      ECOS,
-      Ipopt,
+      #ECOS,
+      #Ipopt,
       QuantumInfo, 
       QuantumTomography, 
       RandomQuantum,
@@ -57,7 +57,7 @@ function test_qst_ls(ρ, obs; n=10_000, ideal=false)
     return status, trnorm(ρ-ρest), obj, ρest
 end
 
-function test_qst_ml(ρ, obs; n=10_000, β=0.0, ideal=false, alt=false, maxiter=100,ϵ=20)
+function test_qst_ml(ρ, obs; n=10_000, β=0.0, ideal=false, alt=false, maxiter=100,ϵ=200)
     #obs = Matrix[ (complex(Pauli(i))+eye(2))/2 for i in 1:3 ]
     #append!(obs, Matrix[ (-complex(Pauli(i))+eye(2))/2 for i in 1:3 ])
 
@@ -70,15 +70,15 @@ function test_qst_ml(ρ, obs; n=10_000, β=0.0, ideal=false, alt=false, maxiter=
     samples = ideal ? ideal_means[1:3] : Float64[rand(Binomial(n,μ))/n for μ in ideal_means[1:3]]
     append!(samples,1-samples)
 
-    ρest, obj, status = fit(tomo, samples, maxiter=maxiter, ϵ=ϵ)
-    ρestB, objB, statusB = fitB(tomo, samples)
+    ρest, obj, status, record = fit(tomo, samples, maxiter=maxiter, δ=1/ϵ)
+    #ρestB, objB, statusB = fitB(tomo, samples)
 
-    println(abs(ρest-ρestB))
+    #println(abs(ρest-ρestB))
 
     #ρest, obj, status = alt ? fitB(tomo, samples) :
     #                          fitA(tomo, samples)
 
-    return status, trnorm(ρ-ρest), obj, ρest
+    return status, trnorm(ρ-ρest), obj, ρest, record
 end
 
 function test_qpt_ml(n=1000;ρ=zeros(Float64,0,0))
@@ -128,9 +128,10 @@ end
 
 ρ, obs = qst_test_setup()
 
-result = zeros(100,10)
+kmax = 2
+result = zeros(kmax,10)
 
-for k = 1:100
+for k = 1:kmax
 ρ = .98*projector(rand(FubiniStudyPureState(2)))+.02*rand(HilbertSchmidtMixedState(2))
 
 status, enorm, obj, ρest = test_qst_ls(ρ, obs, ideal=true)
@@ -153,7 +154,7 @@ result[k,2] = enorm
 # @test status == :Optimal
 # @test enorm < 1e-1
 # 
-status, enorm, _, ρest = test_qst_ml(ρ, obs, ideal=true)
+status, enorm, _, ρest, _ = test_qst_ml(ρ, obs, ideal=true)
 result[k,3] = enorm
 # println("Strict ML with mean counts:")
 # println("   status    : $status")
@@ -163,7 +164,7 @@ result[k,3] = enorm
 # @test status == :Optimal
 # @test enorm < 1e-2
 # 
-status, enorm, _, ρest = test_qst_ml(ρ, obs, ideal=true, alt=true)
+status, enorm, _, ρest, _ = test_qst_ml(ρ, obs, ideal=true, alt=true)
 result[k,4] = enorm
 # println("Strict ML with mean counts:")
 # println("   status    : $status")
@@ -173,7 +174,7 @@ result[k,4] = enorm
 # @test status == :Optimal
 # @test enorm < 1e-2
 # 
-status, enorm, _, ρest = test_qst_ml(ρ, obs, ideal=false)
+status, enorm, _, ρest, _ = test_qst_ml(ρ, obs, ideal=false)
 result[k,5] = enorm
 # println("Strict ML with 10_000 counts:")
 # println("   status    : $status")
@@ -183,7 +184,7 @@ result[k,5] = enorm
 # @test status == :Optimal
 # @test enorm < 2e-2
 # 
-status, enorm, _, ρest = test_qst_ml(ρ, obs, ideal=false, alt=true)
+status, enorm, _, ρest, _ = test_qst_ml(ρ, obs, ideal=false, alt=true)
 result[k,6] = enorm
 # println("Strict ML with 10_000 counts:")
 # println("   status    : $status")
@@ -193,7 +194,7 @@ result[k,6] = enorm
 # @test status == :Optimal
 # @test enorm < 2e-2
 # 
-status, enorm, _, ρest = test_qst_ml(ρ, obs, β=0.04, ideal=true)
+status, enorm, _, ρest, _ = test_qst_ml(ρ, obs, β=0.04, ideal=true)
 result[k,7] = enorm
 # println("Hedged ML with mean counts and β=0.04:")
 # println("   status    : $status")
@@ -203,7 +204,7 @@ result[k,7] = enorm
 # @test status == :Optimal
 # @test enorm < 2e-2
 # 
-status, enorm, _, ρest = test_qst_ml(ρ, obs, β=0.04, ideal=true, alt=true)
+status, enorm, _, ρest, _ = test_qst_ml(ρ, obs, β=0.04, ideal=true, alt=true)
 result[k,8] = enorm
 # println("Hedged ML with mean counts and β=0.04:")
 # println("   status    : $status")
@@ -213,7 +214,7 @@ result[k,8] = enorm
 # @test status == :Optimal
 # @test enorm < 2e-2
 # 
-status, enorm, _, ρest = test_qst_ml(ρ, obs, β=0.04, ideal=false)
+status, enorm, _, ρest, _ = test_qst_ml(ρ, obs, β=0.04, ideal=false)
 result[k,9] = enorm
 # println("Hedged ML with 10_000 counts and β=0.04:")
 # println("   status    : $status")
@@ -222,7 +223,7 @@ result[k,9] = enorm
 # println("   estimate  : $ρest")
 # @test status == :Optimal
 # @test enorm < 2e-2
-status, enorm, _, ρest = test_qst_ml(ρ, obs, β=0.04, ideal=false, alt=true)
+status, enorm, _, ρest, _ = test_qst_ml(ρ, obs, β=0.04, ideal=false, alt=true)
 result[k,10] = enorm
 # println("Hedged ML with 10_000 counts and β=0.04:")
 # println("   status    : $status")

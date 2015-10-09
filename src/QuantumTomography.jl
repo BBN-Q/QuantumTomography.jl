@@ -12,7 +12,6 @@
 #     See the License for the specific language governing permissions and
 #     limitations under the License.
 
-
 module QuantumTomography
 
 import Distributions.fit
@@ -24,7 +23,7 @@ export fit,
        LSStateTomo,
        MLStateTomo
 
-using Convex, Distributions, SCS, QuantumInfo
+using Convex, Distributions, SCS, QuantumInfo, SchattenNorms
 
 function build_state_predictor(obs::Vector{Matrix})
     return reduce(vcat,[vec(o)' for o in obs])
@@ -242,9 +241,9 @@ end
 
 function R(ρ,E,obs)
     pr = Float64[real(trace(ρ*Ei)) for Ei in E]
-    R = obs[1]/pr[1]*E[1]/3
+    R = obs[1]/pr[1]*E[1]
     for i in 2:length(E)
-        R += obs[i]/pr[i]*E[i]/3
+        R += obs[i]/pr[i]*E[i]
     end
     R
 end
@@ -258,14 +257,18 @@ end
 #       Is there a simple way to also use an iterative scheme for hedging?
 function fit(method::MLStateTomo,
              freq::Vector;
-             ϵ=20,
+             δ=.005, # a more natural parameterization of "dilution"
              tol=1e-9,
              maxiter=100_000)
+    ϵ=1/δ 
     iter = 1
-    ρk = eye(Complex128,method.dim)/method.dim
+    ρk  = eye(Complex128,method.dim)/method.dim
+    ρkm = Array(Complex128,method.dim,method.dim)
     status = :Optimal
+    record = zeros(maxiter)
+    fill!(record,-1)
     while true
-        ρkm = ρk
+        copy!(ρkm,ρk)
         if iter >= maxiter
             status = :MaxIter
             break
@@ -275,13 +278,14 @@ function fit(method::MLStateTomo,
         A_mul_B!(ρk,ρk,(1+ϵ*Rk)/(1+ϵ)) # ρk = ρk * (1+ϵRk)/(1+ϵ)
         A_mul_B!(ρk,(1+ϵ*Rk)/(1+ϵ),ρk) # ρk = (1+ϵRk) * ρk/(1+ϵ)
         normalize!(ρk) 
-        #if vecnorm(ρk-ρkm)/method.dim^2 < tol
-        #    status = :Optimal
-        #    break
-        #end
+        record[iter] = snorm(ρk-ρkm,1)
+        if vecnorm(ρk-ρkm)/method.dim^2 < tol
+            status = :Optimal
+            break
+        end
         iter += 1
     end
-    return ρk, LL(ρk,method.effects,freq), status
+    return ρk, LL(ρk,method.effects,freq), status, record
 end
 
 function trb_sop(da,db)
