@@ -37,12 +37,12 @@ informationally complete set of measurement effects. In the case of a single
 qubit, that can be given by the eigenstates of the 3 Pauli operators.
 ```julia
 using Cliffords
-obs = Matrix[eye(2)+complex(Pauli(1)), 
-             eye(2)+complex(Pauli(2)), 
-             eye(2)+complex(Pauli(3)), 
-	     eye(2)-complex(Pauli(1)),  
-	     eye(2)-complex(Pauli(2)),  
-	     eye(2)-complex(Pauli(3))]/2
+obs = Matrix[eye(2)+complex(Pauli(1)),
+             eye(2)+complex(Pauli(2)),
+             eye(2)+complex(Pauli(3)),
+             eye(2)-complex(Pauli(1)), 
+             eye(2)-complex(Pauli(2)), 
+             eye(2)-complex(Pauli(3))]/2
 tomo = LSStateTomo(obs)
 ```
 We choose some random pure state to generate the ficticious experiment 
@@ -67,14 +67,16 @@ Using the data generated above, we can instead choose to reconstruct the state
 by maximizing the likelihood function for some set of binomial observations.
 ```
 ml_tomo = MLStateTomo(obs)
-fit(tomo, Float64[Binomial(10_000, μ)/10_000 for μ in ideal_means])
+freqs = Float64[Binomial(10_000, μ)/10_000 for μ in ideal_means[1:3]]
+append!(freqs,1-freqs)
+fit(tomo, freqs)
 ```
 If the observations are incomplete (in the sense that they do not uniquely specify
 the quantum state), one can still perform reconstruction by maximizing a mixture 
 of the likelihood and the entropy of the resulting state (see PRL 107 020404 2011).
 In this package, this would correspond to 
 ```
-fit(tomo, Float64[Binomial(10_000, μ)/10_000 for μ in ideal_means], λ=1e-3)
+fit(tomo, freqs, λ=1e-3)
 ```
 ## TODO
 
