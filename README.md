@@ -111,7 +111,7 @@ julia> fit(ml_tomo, freqs, λ=1e-3)
 - [ ] Implement least-squares and ML process tomography
 - [ ] Implement compressed sensing state and process tomography
 
-## Copywrite
+## Copyright
 
 Raytheon BBN Technologies.
 
@@ -121,4 +121,4 @@ Apache Lincense 2.0 ([summary](https://tldrlegal.com/license/apache-license-2.0-
 
 ## Authors
 
-Marcus Palmer da Silva (@marcusps on GitHub)
+Marcus Silva (@marcusps on GitHub)
