@@ -26,7 +26,7 @@ tomography methods are
 
 + `LSStateTomo`: Least-squares state tomography constrained to yield physical states.
 
-+ `MLStateTomo`: Maximum-likelihood state tomography (including the option for entropy maximization as well). 
++ `MLStateTomo`: Maximum-likelihood state tomography (including the option for entropy maximization or hedging). 
 
 ## Examples
 
@@ -75,7 +75,7 @@ julia> fit(tomo, ideal_means, ones(6))
 3.730685819507896e-11,:Optimal)
 ```
 
-### Constrained maximum-likelihood and maximum-entropy tomography
+### Constrained maximum-likelihood tomography (with maximum entropy and hedging options)
 
 Using the data generated above, we can instead choose to reconstruct the state
 by maximizing the likelihood function for some set of binomial observations.
@@ -99,6 +99,21 @@ of the likelihood and the entropy of the resulting state (see PRL 107 020404 201
 In this package, this would correspond to 
 ```julia
 julia> fit(ml_tomo, freqs, λ=1e-3)
+(
+2x2 Array{Complex{Float64},2}:
+ 0.789155-2.68147e-17im                0.0639152+0.401322im
+         0.0639152-0.401322im  0.210845-9.18039e-18im      ,
+
+-1.5215005466837999,:Optimal)
+```
+
+Constrained maximum-likelihood also suffers from biasing towards low
+rank states.  This can be avoided by *hedging* (see Blume-Kohout, PRL
+105, 200504 2010), which essentially follows a modification of
+Laplace's rule to penalize low rank estimates. Hedging can be enabled
+by using the experimental fitting routine `fitA` with `MLStateTomo`:
+```julia
+julia> QuantumTomography.fitA(ml_tomo, freqs)
 (
 2x2 Array{Complex{Float64},2}:
  0.789155-2.68147e-17im                0.0639152+0.401322im

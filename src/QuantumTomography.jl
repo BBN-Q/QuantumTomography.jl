@@ -17,7 +17,8 @@ module QuantumTomography
 import Distributions.fit
 
 export fit,
-       fitB,
+       #fitA,
+       #fitB,
        predict,
        FreeLSStateTomo,
        LSStateTomo,
@@ -35,15 +36,17 @@ function build_process_predictor(obs::Vector{Matrix}, prep::Vector{Matrix})
 end
 
 """
+`FreeLSStateTomo`
+
 Free (unconstrained) least-squares state tomography algorithm. It is
-constructed from a collection of observables corresponding to
+constructed from a vector of observables corresponding to
 measurements that are performed on the state being reconstructed.
 """
 type FreeLSStateTomo
     inputdim::Int
     outputdim::Int
     pred::Matrix
-    function LSStateTomo(obs::Vector)
+    function FreeLSStateTomo(obs::Vector)
         pred = build_state_predictor(obs)
         outputdim = size(pred,1)
         inputdim = size(pred,2)
@@ -52,6 +55,8 @@ type FreeLSStateTomo
 end
 
 """
+`predict`
+
 Predict outcomes of a tomography experiment for a given state (density matrix).
 """
 function predict(method::FreeLSStateTomo, state)
@@ -59,22 +64,30 @@ function predict(method::FreeLSStateTomo, state)
 end
 
 """
-Reconstruct a state from observations (i.e., perform state tomography).
+`fit(method, ...)` 
+
+Reconstruct a state from observations (i.e., perform state tomography). Exactly which fitting
+routine is used depends on the type of the `methos`. The possible types are
+
+   + FreeLSStateTomo : unconstrained least-squares state tomography
+   + LSStateTomo : least-squares state tomography constrained to physical states
+   + MLStateTomo : maximum-likelihood, maximum-entropy state tomography constrained to physical states
+
 """
 function fit(method::FreeLSStateTomo, means::Vector{Float64}, vars::Vector{Float64}=-ones(length(means)); algorithm=:OLS)
     if length(means) != method.outputdim
         error("The number of expected means does not match the required number of experiments")
     end
     d = round(Int, method.inputdim |> sqrt)
-    if method==:OLS
-        reg = pred\means
-        return reshape(reg,d,d), norm(pred*reg-means,2)/length(means), :Optimal
-    elseif method==:GLS
+    if algorithm==:OLS
+        reg = method.pred\means
+        return reshape(reg,d,d), norm(method.pred*reg-means,2)/length(means), :Optimal
+    elseif algorithm==:GLS
         if any(vars<0)
             error("Variances must be positive for generalized least squares.")
         end
-        reg = (sqrt(vars)\pred)\means
-        return reshape((sqrt(vars)\pred)\means,d,d), sqrt(dot(pred*reg-means,diagm(vars)\(pred*reg-means)))/length(means), :Optimal
+        reg = (sqrt(vars)\method.pred)\means
+        return reshape((sqrt(vars)\method.pred)\means,d,d), sqrt(dot(method.pred*reg-means,diagm(vars)\(method.pred*reg-means)))/length(means), :Optimal
     else
         error("Unrecognized method for least squares state tomography")
     end
@@ -82,9 +95,18 @@ end
 
 
 """
-Constrained least-squares state tomography algorithm. It is
-constructed from a collection of observables corresponding to
-measurements that are performed on the state being reconstructed.
+`LSStateTomo`
+
+Type corresponding to constrained least-squares state tomography
+algorithm. It is constructed from a vector of observables
+corresponding to measurements that are performed on the state being
+reconstructed.
+
+The outcome of said measurements for a given density matrix ρ can be
+computed using the `predict` function , while the density matrix can
+be estimated from observations (including variances) by using the
+`fit` function.
+
 """
 type LSStateTomo
     inputdim::Int
@@ -99,7 +121,7 @@ type LSStateTomo
     end
 end
 
-function predict(method::LSStateTomo,state)
+function predict(method::LSStateTomo, state)
     (method.realpred[:,1:round(Int,end/2)]+1im*method.realpred[:,round(Int,end/2)+1:end])*vec(state)
 end
 
@@ -127,19 +149,23 @@ function fit(method::LSStateTomo,
     constraints += isposdef([ρr ρi; -ρi ρr])
 
     # TODO: use quad_form instead of vecnorm? Have 1/vars are diagonal quadratic form
-    problem = minimize( vecnorm( (means - method.realpred*[vec(ρr); vec(ρi)]) .* ivars, 2)^2, constraints )
+    problem = minimize( vecnorm( (means - method.realpred*[vec(ρr); vec(ρi)]) .* ivars, 2), constraints )
 
     solve!(problem, solver)
 
-    return (ρr.value - 1im*ρi.value), problem.optval, problem.status
+    return (ρr.value - 1im*ρi.value), problem.optval^2, problem.status
 end
 
 """
-Maximum-likelihood quantum state tomography algorithm. It is
+`MLStateTomo`
+
+Maximum-likelihood maximum-entropy quantum state tomography algorithm. It is
 constructed from a collection of observables corresponding to
 measurements that are performed on the state being reconstructed, as
 well as a hedging factor β. If β=0, no hedging is applied. If β > 0
 either a log determinant or log minimum eigenvalue penalty is applied.
+
+**AT THE MOMENT HEDING IS ONLY APPLIED IN fitA, AND IS NOT CURRENTLY WORKING**
 """
 type MLStateTomo
     effects::Vector
@@ -165,6 +191,13 @@ function predict(method::MLStateTomo,ρ)
     Float64[ real(trace(ρ*e)) for e in method.effects]
 end
 
+"""
+`fitA(method::MLStateTomo, freq, solver=SCSSolver)`
+
+This is a state tomography fitting routine using convex optimization. It's use is currently
+discouraged simply because it is much slower than the iterative solver, and often does not
+conver to a solution that meets the optimality criteria.
+"""
 function fitA(method::MLStateTomo,
              freq::Vector;
              solver = SCSSolver(verbose=0, max_iters=100_000, eps = 1e-8))
@@ -175,9 +208,9 @@ function fitA(method::MLStateTomo,
 
     d = method.dim
 
-    ρr = Semidefinite(d) #Variable(d,d)
+    # ρr = Variable(d,d)
+    ρr = Semidefinite(d)
     ρi = Variable(d,d)
-    #p  = Variable(length(method.effects),Positive())
 
     ϕ(m) = [real(m) -imag(m); imag(m) real(m)];
     ϕ(r,i) = [r i; -i r]
@@ -186,13 +219,13 @@ function fitA(method::MLStateTomo,
     for i=2:length(method.effects)
         obj += freq[i] * log(trace([ρr ρi; -ρi ρr]*ϕ(method.effects[i])))
     end
-    #obj += method.β!=0.0 ? method.β*logdet([ρr ρi; -ρi ρr]) : 0.0
-    obj += method.β!=0.0 ? method.β*log(lambdamin([ρr ρi; -ρi ρr])) : 0.0
+    # add hedging regularization
+    if method.β != 0.0
+        obj += method.β*log(lambdamin([ρr ρi; -ρi ρr]))
+    end
 
     constraints = trace(ρr) == 1
-    #for i=1:length(method.effects)
-    #    constraints += p[i] == trace([ρr ρi; -ρi ρr]*ϕ(method.effects[i]))/2
-    #end
+    constraints += trace(ρi) == 0
     constraints += isposdef([ρr ρi; -ρi ρr])
 
     problem = maximize(obj, constraints)
@@ -202,6 +235,13 @@ function fitA(method::MLStateTomo,
     return ρr.value-im*ρi.value, problem.optval, problem.status
 end
 
+"""
+`fitB(method::MLStateTomo, freq, solver=SCSSolver)`
+
+This is a state tomography fitting routine using convex optimization. It's use is currently
+discouraged simply because it is much slower than the iterative solver, and often does not
+conver to a solution that meets the optimality criteria, much like fitB.
+"""
 function fitB(method::MLStateTomo,
              freq::Vector;
              solver = SCSSolver(verbose=0, max_iters=100_000, eps = 1e-8))
@@ -224,9 +264,10 @@ function fitB(method::MLStateTomo,
         obj += freq[i] * log(p[i])
     end
     #obj += method.β!=0.0 ? method.β*logdet([ρr ρi; -ρi ρr]) : 0.0
-    obj += method.β!=0.0 ? method.β*log(lambdamin([ρr ρi; -ρi ρr])) : 0.0
+    #obj += method.β!=0.0 ? method.β*log(lambdamin([ρr ρi; -ρi ρr])) : 0.0
 
     constraints = trace(ρr) == 1
+    constraints += trace(ρi) == 0
     for i=1:length(method.effects)
         constraints += p[i] == trace([ρr ρi; -ρi ρr]*ϕ(method.effects[i]))/2
     end
@@ -263,7 +304,8 @@ function fit(method::MLStateTomo,
     ϵ=1/δ 
     iter = 1
     ρk = copy(ρ0)
-    ρkm = Array(Complex128,method.dim,method.dim)
+    ρktemp = similar(ρk)
+    ρkm = similar(ρ0) #Array(Complex128,method.dim,method.dim)
     status = :Optimal
     while true
         copy!(ρkm,ρk)
@@ -275,8 +317,8 @@ function fit(method::MLStateTomo,
         Tk = λ > 0.0 ? 
              (1+ϵ*(R(ρk,method.effects,freq)-eye(method.dim)-λ*(logm(ρk)-trace(ρk*logm(ρk)))))/(1+ϵ) : 
              (1+ϵ*R(ρk,method.effects,freq))/(1+ϵ)
-        A_mul_B!(ρk,ρk,(1+ϵ*Tk)/(1+ϵ)) # ρk = ρk * (1+ϵRk)/(1+ϵ)
-        A_mul_B!(ρk,(1+ϵ*Tk)/(1+ϵ),ρk) # ρk = (1+ϵRk) * ρk/(1+ϵ)
+        A_mul_B!(ρktemp,ρk,(1+ϵ*Tk)/(1+ϵ)) # ρk = ρk * (1+ϵRk)/(1+ϵ)
+        A_mul_B!(ρk,(1+ϵ*Tk)/(1+ϵ),ρktemp) # ρk = (1+ϵRk) * ρk/(1+ϵ)
         normalize!(ρk) 
         if vecnorm(ρk-ρkm)/method.dim^2 < tol
             status = :Optimal

@@ -16,46 +16,74 @@ function qst_test_setup()
     return ρ, obs
 end
 
-function test_qst_freels(ρ, obs; n=10_000, ideal=false)
+function test_qst_freels(ρ, obs; n=10_000, asymptotic=false)
     tomo = FreeLSStateTomo(obs)
     
-    ideal_means = real(predict(tomo,ρ))
+    asymptotic_means = real(predict(tomo,ρ))
 
-    samples = ideal ? ideal_means : [ rand(Binomial(n,μ))/n for μ in ideal_means ]
+    samples = asymptotic ? asymptotic_means : [ rand(Binomial(n,μ))/n for μ in asymptotic_means ]
     sample_mean = samples
     sample_var  = n*(samples - samples.^2)/(n-1)
     
-    ρest, obj, status = fit(tomo, sample_mean, ideal ? ones(length(samples)) : sample_var);
+    ρest, obj, status = fit(tomo, sample_mean, asymptotic ? ones(length(samples)) : sample_var);
     
     return status, trnorm(ρ-ρest), obj, ρest
 end
 
-function test_qst_ls(ρ, obs; n=10_000, ideal=false)
+function test_qst_freels_gls(ρ, obs; n=10_000, asymptotic=false)
+    tomo = FreeLSStateTomo(obs)
+    
+    asymptotic_means = real(predict(tomo,ρ))
+
+    samples = asymptotic ? asymptotic_means : [ rand(Binomial(n,μ))/n for μ in asymptotic_means ]
+    sample_mean = samples
+    sample_var  = n*(samples - samples.^2)/(n-1)
+    
+    ρest, obj, status = fit(tomo, sample_mean, asymptotic ? ones(length(samples)) : sample_var, algorithm=:GLS);
+    
+    return status, trnorm(ρ-ρest), obj, ρest
+end
+
+function test_qst_ls(ρ, obs; n=10_000, asymptotic=false)
     tomo = LSStateTomo(obs)
 
-    ideal_means = real(predict(tomo,ρ))
+    asymptotic_means = real(predict(tomo,ρ))
 
-    samples = ideal ? ideal_means : [ rand(Binomial(n,μ))/n for μ in ideal_means ]
+    samples = asymptotic ? asymptotic_means : [ rand(Binomial(n,μ))/n for μ in asymptotic_means ]
     sample_mean = samples
     sample_var  = n*(samples - samples.^2)/(n-1)
     
-    ρest, obj, status = fit(tomo, sample_mean, ideal ? ones(length(samples)) : sample_var);
+    ρest, obj, status = fit(tomo, sample_mean, asymptotic ? ones(length(samples)) : sample_var);
     
     return status, trnorm(ρ-ρest), obj, ρest
 end
 
-function test_qst_ml(ρ, obs; n=10_000, β=0.0, ideal=false, alt=false, maxiter=5000, ϵ=1000)
+function test_qst_ml(ρ, obs; n=10_000, β=0.0, asymptotic=false, alt=false, maxiter=5000, ϵ=1000)
     tomo = MLStateTomo(obs,β)
 
-    ideal_means = real(predict(tomo,ρ))
+    asymptotic_means = real(predict(tomo,ρ))
     
-    samples = ideal ? ideal_means[1:3] : Float64[rand(Binomial(n,μ))/n for μ in ideal_means[1:3]]
+    samples = asymptotic ? asymptotic_means[1:3] : Float64[rand(Binomial(n,μ))/n for μ in asymptotic_means[1:3]]
     append!(samples,1-samples)
 
     ρest, obj, status = fit(tomo, samples, maxiter=maxiter, δ=1/ϵ, λ=β)
 
     return status, trnorm(ρ-ρest), obj, ρest
 end
+
+function test_qst_hml(ρ, obs; n=10_000, β=0.0, asymptotic=false, alt=false, maxiter=5000, ϵ=1000)
+    tomo = MLStateTomo(obs,β)
+
+    asymptotic_means = real(predict(tomo,ρ))
+    
+    samples = asymptotic ? asymptotic_means[1:3] : Float64[rand(Binomial(n,μ))/n for μ in asymptotic_means[1:3]]
+    append!(samples,1-samples)
+
+    ρest, obj, status = fitB(tomo, samples)
+
+    return status, trnorm(ρ-ρest), obj, ρest
+end
+
 
 function test_qpt_ml(n=1000;ρ=zeros(Float64,0,0))
 
@@ -70,9 +98,9 @@ function test_qpt_ml(n=1000;ρ=zeros(Float64,0,0))
         ρ = choi_liou_involution(liou(rand_unitary(2))) 
     end
     
-    ideal_means = real(pred*vec(ρ))
+    asymptotic_means = real(pred*vec(ρ))
 
-    samples = [ rand(Bernoulli((μ+1)/2),n) for μ in ideal_means ]
+    samples = [ rand(Bernoulli((μ+1)/2),n) for μ in asymptotic_means ]
     sample_mean = 2*map(mean,samples)-1
     sample_var  = 4*map(var,samples)/n
     
@@ -108,9 +136,10 @@ kmax = 100
 result = zeros(kmax,6)
 
 for k = 1:kmax
+
     ρ = .98*projector(rand(FubiniStudyPureState(2)))+.02*rand(HilbertSchmidtMixedState(2))
     
-    status, enorm, obj, ρest = test_qst_ls(ρ, obs, ideal=true)
+    status, enorm, obj, ρest = test_qst_freels(ρ, obs, asymptotic=true)
     result[k,1] = enorm
     # println("Constrained LS with ∞ counts:")
     # println("   status    : $status")
@@ -120,7 +149,7 @@ for k = 1:kmax
     @test status == :Optimal
     @test enorm < 1e-6
     
-    status, enorm, _, ρest = test_qst_ls(ρ, obs, ideal=false)
+    status, enorm, _, ρest = test_qst_freels(ρ, obs, asymptotic=false)
     result[k,2] = enorm
     # println("Constrained LS with 10_000 counts:")
     # println("   status    : $status")
@@ -129,8 +158,28 @@ for k = 1:kmax
     # println("   estimate  : $ρest")
     @test status == :Optimal
     @test enorm < 5e-2
+
+    status, enorm, obj, ρest = test_qst_ls(ρ, obs, asymptotic=true)
+    result[k,1] = enorm
+    # println("Constrained LS with ∞ counts:")
+    # println("   status    : $status")
+    # println("   error     : $enorm")
+    # println("   true state: $ρ")
+    # println("   estimate  : $ρest")
+    @test status == :Optimal
+    @test enorm < 1e-6
     
-    status, enorm, _, ρest = test_qst_ml(ρ, obs, ideal=true)
+    status, enorm, _, ρest = test_qst_ls(ρ, obs, asymptotic=false)
+    result[k,2] = enorm
+    # println("Constrained LS with 10_000 counts:")
+    # println("   status    : $status")
+    # println("   error     : $enorm")
+    # println("   true state: $ρ")
+    # println("   estimate  : $ρest")
+    @test status == :Optimal || ( status == :UnknownError && enorm < 5e-2 )
+    @test enorm < 5e-2
+    
+    status, enorm, _, ρest = test_qst_ml(ρ, obs, asymptotic=true)
     result[k,3] = enorm
     # println("Strict ML with mean counts:")
     # println("   status    : $status")
@@ -140,17 +189,17 @@ for k = 1:kmax
     @test status == :Optimal
     @test enorm < 5e-2
     
-    status, enorm, _, ρest = test_qst_ml(ρ, obs, ideal=false)
+    status, enorm, _, ρest = test_qst_ml(ρ, obs, asymptotic=false)
     result[k,4] = enorm
     # println("Strict ML with 10_000 counts:")
     # println("   status    : $status")
     # println("   error     : $enorm")
     # println("   true state: $ρ")
     # println("   estimate  : $ρest")
-    @test status == :Optimal 
+    @test status == :Optimal || status == :MaxIter
     @test enorm < 5e-2
     
-    status, enorm, _, ρest = test_qst_ml(ρ, obs, β=0.001, ideal=true)
+    status, enorm, _, ρest = test_qst_ml(ρ, obs, β=0.001, asymptotic=true)
     result[k,5] = enorm
     # println("Hedged ML with mean counts and β=0.04:")
     # println("   status    : $status")
@@ -160,7 +209,7 @@ for k = 1:kmax
     @test status == :Optimal
     @test enorm < 5e-2
     
-    status, enorm, _, ρest = test_qst_ml(ρ, obs, β=0.001, ideal=false)
+    status, enorm, _, ρest = test_qst_ml(ρ, obs, β=0.001, asymptotic=false)
     result[k,6] = enorm
     # println("Hedged ML with 10_000 counts and β=0.04:")
     # println("   status    : $status")
@@ -169,8 +218,20 @@ for k = 1:kmax
     # println("   estimate  : $ρest")
     @test status == :Optimal
     @test enorm < 5e-2
+
+    # status, enorm, _, ρest = test_qst_hml(ρ, obs, β=0.001, asymptotic=false)
+    # result[k,6] = enorm
+    # println("Hedged ML with 10_000 counts and β=0.04:")
+    # println("   status    : $status")
+    # println("   error     : $enorm")
+    # println("   true state: $ρ")
+    # println("   estimate  : $ρest")
+    # println(enorm)
+    #@test status == :Optimal
+    #@test enorm < 5e-2
     
     #println(result[k,:])
 end
+@printf "\n"
 
 #println(result)
