@@ -319,7 +319,7 @@ function fit(method::MLStateTomo,
              (1+ϵ*R(ρk,method.effects,freq))/(1+ϵ)
         A_mul_B!(ρktemp,ρk,(1+ϵ*Tk)/(1+ϵ)) # ρk = ρk * (1+ϵRk)/(1+ϵ)
         A_mul_B!(ρk,(1+ϵ*Tk)/(1+ϵ),ρktemp) # ρk = (1+ϵRk) * ρk/(1+ϵ)
-        normalize!(ρk) 
+        trnormalize!(ρk) 
         if vecnorm(ρk-ρkm)/method.dim^2 < tol
             status = :Optimal
             break
