@@ -24,7 +24,7 @@ export fit,
        LSStateTomo,
        MLStateTomo
 
-using Convex, Distributions, SCS, QuantumInfo, SchattenNorms
+using Convex, Distributions, SCS, QuantumInfo
 
 function build_state_predictor(obs::Vector{Matrix})
     return reduce(vcat,[vec(o)' for o in obs])
