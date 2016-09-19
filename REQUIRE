@@ -1,6 +1,6 @@
 julia 0.4.0
 Convex
 Distributions
-QuantumInfo
+QuantumInfo 0.0.2
 SCS
 SchattenNorms
