@@ -21,7 +21,7 @@ function test_qst_freels(ρ, obs; n=10_000, asymptotic=false)
     
     asymptotic_means = real(predict(tomo,ρ))
 
-    samples = asymptotic ? asymptotic_means : [ rand(Binomial(n,μ))/n for μ in asymptotic_means ]
+    samples = asymptotic ? asymptotic_means : Float64[ rand(Binomial(n,μ))/n for μ in asymptotic_means ]
     sample_mean = samples
     sample_var  = n*(samples - samples.^2)/(n-1)
     
@@ -35,7 +35,7 @@ function test_qst_freels_gls(ρ, obs; n=10_000, asymptotic=false)
     
     asymptotic_means = real(predict(tomo,ρ))
 
-    samples = asymptotic ? asymptotic_means : [ rand(Binomial(n,μ))/n for μ in asymptotic_means ]
+    samples = asymptotic ? asymptotic_means : Float64[ rand(Binomial(n,μ))/n for μ in asymptotic_means ]
     sample_mean = samples
     sample_var  = n*(samples - samples.^2)/(n-1)
     
@@ -49,7 +49,7 @@ function test_qst_ls(ρ, obs; n=10_000, asymptotic=false)
 
     asymptotic_means = real(predict(tomo,ρ))
 
-    samples = asymptotic ? asymptotic_means : [ rand(Binomial(n,μ))/n for μ in asymptotic_means ]
+    samples = asymptotic ? asymptotic_means : Float64[ rand(Binomial(n,μ))/n for μ in asymptotic_means ]
     sample_mean = samples
     sample_var  = n*(samples - samples.^2)/(n-1)
     
@@ -100,7 +100,7 @@ function test_qpt_ml(n=1000;ρ=zeros(Float64,0,0))
     
     asymptotic_means = real(pred*vec(ρ))
 
-    samples = [ rand(Bernoulli((μ+1)/2),n) for μ in asymptotic_means ]
+    samples = Float64[ rand(Bernoulli((μ+1)/2),n) for μ in asymptotic_means ]
     sample_mean = 2*map(mean,samples)-1
     sample_var  = 4*map(var,samples)/n
     
