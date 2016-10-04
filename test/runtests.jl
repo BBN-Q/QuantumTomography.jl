@@ -135,6 +135,8 @@ end
 kmax = 100
 result = zeros(kmax,6)
 
+srand(314159)
+
 for k = 1:kmax
 
     ρ = .98*projector(rand(FubiniStudyPureState(2)))+.02*rand(HilbertSchmidtMixedState(2))
