@@ -1,11 +1,11 @@
 #    Copyright 2015 Raytheon BBN Technologies
-#  
+#
 #     Licensed under the Apache License, Version 2.0 (the "License");
 #     you may not use this file except in compliance with the License.
 #     You may obtain a copy of the License at
-#  
+#
 #       http://www.apache.org/licenses/LICENSE-2.0
-#  
+#
 #     Unless required by applicable law or agreed to in writing, software
 #     distributed under the License is distributed on an "AS IS" BASIS,
 #     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -64,10 +64,10 @@ function predict(method::FreeLSStateTomo, state)
 end
 
 """
-`fit(method, ...)` 
+`fit(method, ...)`
 
 Reconstruct a state from observations (i.e., perform state tomography). Exactly which fitting
-routine is used depends on the type of the `methos`. The possible types are
+routine is used depends on the type of the `method`. The possible types are
 
    + FreeLSStateTomo : unconstrained least-squares state tomography
    + LSStateTomo : least-squares state tomography constrained to physical states
@@ -126,7 +126,7 @@ function predict(method::LSStateTomo, state)
 end
 
 function fit(method::LSStateTomo,
-             means::Vector{Float64}, 
+             means::Vector{Float64},
              vars::Vector{Float64};
              solver = SCSSolver(verbose=0, max_iters=10_000, eps = 1e-8))
 
@@ -165,7 +165,7 @@ measurements that are performed on the state being reconstructed, as
 well as a hedging factor β. If β=0, no hedging is applied. If β > 0
 either a log determinant or log minimum eigenvalue penalty is applied.
 
-**AT THE MOMENT HEDING IS ONLY APPLIED IN fitA, AND IS NOT CURRENTLY WORKING**
+**AT THE MOMENT HEDGING IS ONLY APPLIED IN fitA, AND IS NOT CURRENTLY WORKING**
 """
 type MLStateTomo
     effects::Vector
@@ -177,7 +177,7 @@ type MLStateTomo
                 error("MLStateTomo state tomography is parameterized by POVM effects only.")
             end
         end
-        if !all([size(e,1)==size(e,2) for e in v]) || !all([size(v[1],1)==size(e,1) for e in v]) 
+        if !all([size(e,1)==size(e,2) for e in v]) || !all([size(v[1],1)==size(e,1) for e in v])
                 error("All effects must be square matrices, and they must have have the same dimension.")
         end
         if β < 0
@@ -301,7 +301,7 @@ function fit(method::MLStateTomo,
              tol=1e-9,
              maxiter=100_000,
              ρ0 = eye(Complex128,method.dim))
-    ϵ=1/δ 
+    ϵ=1/δ
     iter = 1
     ρk = copy(ρ0)
     ρktemp = similar(ρk)
@@ -313,13 +313,13 @@ function fit(method::MLStateTomo,
             status = :MaxIter
             break
         end
-        # diluted iterative scheme for ML (from PRA 75 042108 2007) 
-        Tk = λ > 0.0 ? 
-             (1+ϵ*(R(ρk,method.effects,freq)-eye(method.dim)-λ*(logm(ρk)-trace(ρk*logm(ρk)))))/(1+ϵ) : 
+        # diluted iterative scheme for ML (from PRA 75 042108 2007)
+        Tk = λ > 0.0 ?
+             (1+ϵ*(R(ρk,method.effects,freq)-eye(method.dim)-λ*(logm(ρk)-trace(ρk*logm(ρk)))))/(1+ϵ) :
              (1+ϵ*R(ρk,method.effects,freq))/(1+ϵ)
         A_mul_B!(ρktemp,ρk,(1+ϵ*Tk)/(1+ϵ)) # ρk = ρk * (1+ϵRk)/(1+ϵ)
         A_mul_B!(ρk,(1+ϵ*Tk)/(1+ϵ),ρktemp) # ρk = (1+ϵRk) * ρk/(1+ϵ)
-        trnormalize!(ρk) 
+        trnormalize!(ρk)
         if vecnorm(ρk-ρkm)/method.dim^2 < tol
             status = :Optimal
             break
@@ -360,7 +360,7 @@ type LSProcessTomo
 end
 
 # For QPT, we write the predictor as operating on Choi-Jamilokoski
-# matrices.  This is a bit awkward in comparisson to using the
+# matrices.  This is a bit awkward in comparison to using the
 # Liouville/natural representation, but it gets around some of the
 # limitations of Convex.jl, and it is also much more efficient.
 function qpt_ml(pred::Matrix, means::Vector{Float64}, vars::Vector{Float64})
@@ -408,4 +408,3 @@ function qpt_ml(obs::Vector{Matrix}, states::Vector{Matrix}, means::Vector{Float
 end
 
 end # module
-

@@ -11,7 +11,7 @@ be physical (e.g., correspond to a valid quantum mechanical object).
 
 Namely, states are constrained to be given by positive semidefinite
 matrices with unit trace, processes are constrained to be given by the
-Choi matrix of a completely positive, trace perserving map, and
+Choi matrix of a completely positive, trace preserving map, and
 measurements are constrained to be given by POVM elements.
 
 ## API
@@ -26,7 +26,7 @@ tomography methods are
 
 + `LSStateTomo`: Least-squares state tomography constrained to yield physical states.
 
-+ `MLStateTomo`: Maximum-likelihood state tomography (including the option for entropy maximization or hedging). 
++ `MLStateTomo`: Maximum-likelihood state tomography (including the option for entropy maximization or hedging).
 
 ## Examples
 
@@ -44,7 +44,7 @@ julia> append!(obs, Matrix[ (-complex(Pauli(i))+eye(2))/2 for i in 1:3 ]);
 
 julia> tomo = LSStateTomo(obs);
 ```
-We choose some random pure state to generate the ficticious experiment 
+We choose some random pure state to generate the ficticious experiment
 ```julia
 julia> using RandomQuantum, QuantumInfo
 
@@ -52,7 +52,7 @@ julia> ψ  = rand(FubiniStudyPureState(2));
 
 julia> normalize!(ψ)
 2-element Array{Complex{Float64},1}:
- 0.264298+0.850605im 
+ 0.264298+0.850605im
  0.449897-0.0648884im
 
 julia> ρ = projector(ψ)
@@ -94,9 +94,9 @@ julia> fit(ml_tomo, freqs)
 -1.5215022154657007,:Optimal)
 ```
 If the observations are incomplete (in the sense that they do not uniquely specify
-the quantum state), one can still perform reconstruction by maximizing a mixture 
+the quantum state), one can still perform reconstruction by maximizing a mixture
 of the likelihood and the entropy of the resulting state (see PRL 107 020404 2011).
-In this package, this would correspond to 
+In this package, this would correspond to
 ```julia
 julia> fit(ml_tomo, freqs, λ=1e-3)
 (
