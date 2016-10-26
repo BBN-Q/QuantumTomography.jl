@@ -1,4 +1,6 @@
-function build_process_predictor(prep::Vector{Matrix}, obs::Vector{Matrix})
+export FreeLSProcessTomo
+
+function build_liou_process_predictor(prep::Vector, obs::Vector)
     exps = Matrix[ vec(p)*vec(o)' for o in obs, p in prep ]
     return reduce(vcat, map(m->vec(m)', vec(exps)) )
 end
@@ -17,25 +19,25 @@ type FreeLSProcessTomo
     outputdim::Int
     pred::Matrix
     function FreeLSProcessTomo(states::Vector,obs::Vector)
-        pred = build_process_predictor(states, obs)
+        pred = build_liou_process_predictor(states, obs)
         outputdim = size(pred,1)
         inputdim = size(pred,2)
-        new(inputdim,outputdim,pred)
+        new(length(states),length(obs),inputdim,outputdim,pred)
     end
 end
 
 function predict(method::FreeLSProcessTomo, process::Matrix)
-    reshape(method.pred*vec(state), (statecount,obscount))
+    reshape(method.pred*vec(process), (method.statecount,method.obscount))
 end
 
 function fit(method::FreeLSProcessTomo,
-             means::Vector{Float64},
+             means::Vector,
              vars::Vector{Float64}=-ones(length(means));
              algorithm=:OLS)
     if length(means) != method.outputdim
         error("The number of expected means does not match the required number of experiments")
     end
-    d = round(Int,shape(pred,1) |> sqrt |> round)
+    d = round(Int, size(method.pred,2) |> sqrt)
     if algorithm==:OLS
         reg = method.pred\means
         return (reshape(reg,d,d),
@@ -54,27 +56,15 @@ function fit(method::FreeLSProcessTomo,
 end
 
 function fit(method::FreeLSProcessTomo,
-             means::Matrix{Float64},
-             vars::Matrix{Float64}=-ones(length(means));
+             means::Matrix,
+             vars::Matrix{Float64}=-ones(size(means));
              algorithm=:OLS)
-    if size(means) != (method.statecount, methods.obscount)
+    if size(means) != (method.statecount, method.obscount)
         error("Mean matrix must be $((method.statecount, methods.obscount)), but is $(size(means))")
     elseif algorithm==:GLS && size(vars) != (method.statecount, methods.obscount)
         error("Pointwise variance matrix must be $((method.statecount, methods.obscount)), but is $(size(means))")
     end
     fit(method, vec(means), vec(vars), algorithm=algorithm)
-end
-
-# TODO: what about the (unobservable) traceful component
-function qpt_lsq(pred::Matrix, means::Vector{Float64}, vars::Vector{Float64}; method=:OLS)
-    d = Int(shape(pred,1) |> sqrt |> round)
-    if method==:OLS
-        return reshape(pred\means,d,d)
-    elseif method==:GLS
-        return reshape((sqrt(vars)\pred)\means,d,d)
-    else
-        error("Unrecognized method for least squares process tomography")
-    end
 end
 
 type LSProcessTomo

@@ -85,55 +85,48 @@ function test_qst_hml(ρ, obs; n=10_000, β=0.0, asymptotic=false, alt=false, ma
 end
 
 
-function test_qpt_free_lsq(n=1000; E=zeros(Float64,0,0))
+function test_qpt_free_lsq(n=1000; E=zeros(Complex128,0,0))
 
-    obs  = Matrix[X, Y, Z]
-    prep = map(projector,Vector[ [1,0],
-                                 [0,1],
-                                 1/sqrt(2)*[1,1],
-                                 1/sqrt(2)*[1,-1],
-                                 1/sqrt(2)*[1,-1im],
-                                 1/sqrt(2)*[1,1im] ] )
+    obs  = map(complex, Pauli[X, Y, Z])
+    push!(obs, eye(2))
+    prep = map(projector, Vector[ [1,0],
+                                  [0,1],
+                                  1/sqrt(2)*[1,1],
+                                  1/sqrt(2)*[1,-1],
+                                  1/sqrt(2)*[1,-1im],
+                                  1/sqrt(2)*[1,1im] ] )
 
-    exps = [ vec(p)*vec(o)' for o in obs, p in prep ]
-
-    pred = reduce(vcat, map(m->vec(m)', vec(exps)) )
-
-    if isapprox( E |> abs |> maximum, 0.0)
+    if size(E) == (0,0)
         E = liou(rand(RandomQuantum.ClosedHaarEnsemble(2)))
     end
 
-    asymptotic_means = real(pred*vec(E))
+    tomo = FreeLSProcessTomo(prep, obs)
 
-    samples = [ rand(Bernoulli((μ+1)/2),n) for μ in asymptotic_means ]
-    sample_mean = 2*map(mean,samples)-1
-    sample_var  = 4*map(var,samples)/n
+    asymptotic_means = predict(tomo, E)
 
-    ρest, obj, status = QuantumTomography.qpt_ml(pred, sample_mean, sample_var);
+    Eest, obj, status = fit(tomo, asymptotic_means);
 
-    # get the normalization right
-    choi_err = ρ-ρest |> choi_liou_involution |> liou2choi
+    choi_err = liou2choi(Eest - E)
 
-    println("Status                  : $(status)")
-    println("Diamond norm lower bound: $(snorm(choi_err,1))")
-    println("χ² error                : $(obj)")
-    println("Eigvals ρ:")
-    for ev in eigvals(ρ)
-        println(ev)
-    end
-    println("Eigvals ρest:")
-    for ev in eigvals(ρest)
-        println(real(ev))
-    end
+    #println("Status                  : $(status)")
+    #println("Diamond norm lower bound: $(snorm(choi_err,1))")
+    #println("χ² error                : $(obj)")
+    #println("Eigvals ρ:")
+    #for ev in eigvals(E)
+    #    println(ev)
+    #end
+    #println("Eigvals ρest:")
+    #for ev in eigvals(Eest)
+    #    println(real(ev))
+    #end
 
-    return status, snorm(choi_err,1), obj, abs(choi_err), eigvals(ρ), eigvals(ρest)
+    return status, snorm(choi_err,1), obj, Eest
 end
 
 function test_trb(da,db)
     r = rand_mixed_state(da*db)
     norm(trace(r,[da,db],2)-mat(trb_sop(da,db)*vec(r)),1)
 end
-
 
 ρ, obs = qst_test_setup()
 
@@ -237,10 +230,13 @@ for k = 1:kmax
     #@test status == :Optimal
     #@test enorm < 5e-2
 
+    status, enorm, _, Eest = test_qpt_free_lsq()
+    @test status == :Optimal
+    @test enorm < 1e-8
+
     #println(result[k,:])
 end
-@printf "\n"
+#@printf "\n"
 
-test_qpt_ml()
 
 #println(result)
