@@ -85,20 +85,25 @@ function test_qst_hml(ρ, obs; n=10_000, β=0.0, asymptotic=false, alt=false, ma
 end
 
 
-function test_qpt_ml(n=1000;ρ=zeros(Float64,0,0))
+function test_qpt_free_lsq(n=1000; E=zeros(Float64,0,0))
 
-    obs  = [X, Y, Z]
-    prep = map(projector,[ [1,0], [0,1], 1/sqrt(2)*[1,1], 1/sqrt(2)*[1,-1], 1/sqrt(2)*[1,-1im], 1/sqrt(2)*[1,1im] ] )
+    obs  = Matrix[X, Y, Z]
+    prep = map(projector,Vector[ [1,0],
+                                 [0,1],
+                                 1/sqrt(2)*[1,1],
+                                 1/sqrt(2)*[1,-1],
+                                 1/sqrt(2)*[1,-1im],
+                                 1/sqrt(2)*[1,1im] ] )
 
-    exps = [ choi_liou_involution(vec(o)*vec(p)') for o in obs, p in prep ]
+    exps = [ vec(p)*vec(o)' for o in obs, p in prep ]
 
     pred = reduce(vcat, map(m->vec(m)', vec(exps)) )
 
-    if trace(ρ) == 0.0
-        ρ = choi_liou_involution(liou(rand(RandomQuantum.ClosedHaarEnsemble(2))))
+    if isapprox( E |> abs |> maximum, 0.0)
+        E = liou(rand(RandomQuantum.ClosedHaarEnsemble(2)))
     end
 
-    asymptotic_means = real(pred*vec(ρ))
+    asymptotic_means = real(pred*vec(E))
 
     samples = [ rand(Bernoulli((μ+1)/2),n) for μ in asymptotic_means ]
     sample_mean = 2*map(mean,samples)-1
