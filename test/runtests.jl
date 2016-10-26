@@ -87,8 +87,6 @@ end
 
 function test_qpt_free_lsq(n=1000; E=zeros(Complex128,0,0))
 
-    obs  = map(complex, Pauli[X, Y, Z])
-    push!(obs, eye(2))
     prep = map(projector, Vector[ [1,0],
                                   [0,1],
                                   1/sqrt(2)*[1,1],
@@ -100,7 +98,7 @@ function test_qpt_free_lsq(n=1000; E=zeros(Complex128,0,0))
         E = liou(rand(RandomQuantum.ClosedHaarEnsemble(2)))
     end
 
-    tomo = FreeLSProcessTomo(prep, obs)
+    tomo = FreeLSProcessTomo(prep, prep)
 
     asymptotic_means = predict(tomo, E)
 
