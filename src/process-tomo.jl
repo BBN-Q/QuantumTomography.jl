@@ -1,7 +1,15 @@
-export FreeLSProcessTomo
+export FreeLSProcessTomo,
+       LSProcessTomo,
 
 function build_liou_process_predictor(prep::Vector, obs::Vector)
     exps = Matrix[ vec(p)*vec(o)' for o in obs, p in prep ]
+    return reduce(vcat, map(m->vec(m)', vec(exps)) )
+end
+
+function build_choi_process_predictor(prep::Vector, obs::Vector)
+    #exps = Matrix[ choi_liou_involution(vec(o)*vec(p)') for o in obs, p in prep ]
+    #pred = reduce(vcat, map(m->vec(m)', vec(exps)) )
+    exps = Matrix[ vec(kron(transpose(o),p)) for o in obs, p in prep ]
     return reduce(vcat, map(m->vec(m)', vec(exps)) )
 end
 
@@ -85,6 +93,49 @@ function trb_sop(da,db)
     return sop
 end
 
+function fit(method::LSProcessTomo,
+             means::Vector{Float64},
+             vars=ones(length(means));
+             solver = SCSSolver(verbose=0, max_iters=10_000, eps = 1e-8))
+    # TODO:
+    # [ ] build liou predictor, use it for "fitness" metric
+    # [ ] use reshaping formulation of liou to choi conversion
+    # [ ] impose CP constraint on choi formulation : J(E) > 0
+    # [ ] impose TP constraint on liou formulation : E' vec(eye) = vec(eye)
+
+    if length(means) != length(vars) || size(method.pred,1) != length(means)
+        error("Size of observations and predictons do not match.")
+    end
+    d4 = size(pred,2)
+    d2 = Int(sqrt(d4))
+    d  = Int(sqrt(d2))
+
+    # We assume that the predictions are always real-valued
+    # and we need to do the complex->real translation manually since
+    # Convex.jl does not support complex numbers yet
+    rpred = [real(pred) imag(pred)];
+    ivars = 1./sqrt(vars)
+
+    ptrb = trb_sop(d,d)
+
+    ρr = Variable(d2,d2)
+    ρi = Variable(d2,d2)
+
+    # least squares problem
+    problem = minimize( vecnorm( (means - rpred*[vec(ρr); vec(ρi)]) .* ivars, 2 )^2 )
+
+    # CP constraint
+    problem.constraints += isposdef([ρr ρi; -ρi ρr])
+    # TP constraint
+    problem.constraints += reshape(ptrb*vec(ρr),d,d) == eye(d)
+    problem.constraints += reshape(ptrb*vec(ρi),d,d) == zeros(d,d)
+
+    solve!(problem, SCSSolver(verbose=0))
+
+    return (ρr.value - 1im*ρi.value), problem.optval, problem.status
+end
+
+
 # For QPT, we write the predictor as operating on Choi-Jamilokoski
 # matrices.  This is a bit awkward in comparison to using the
 # Liouville/natural representation, but it gets around some of the
@@ -120,15 +171,3 @@ function qpt_ml(pred::Matrix, means::Vector{Float64}, vars::Vector{Float64})
     return (ρr.value - 1im*ρi.value), problem.optval, problem.status
 end
 
-function qst_ml(obs::Vector{Matrix}, means::Vector{Float64}, vars::Vector{Float64})
-    #pred = reduce(vcat,[vec(o)' for o in obs])
-    pred = build_state_predictor(obs)
-    return qst_ml(pred, means, vars)
-end
-
-function qpt_ml(obs::Vector{Matrix}, states::Vector{Matrix}, means::Vector{Float64}, vars::Vector{Float64})
-    #exps = Matrix[ choi_liou_involution(vec(o)*vec(p)') for o in obs, p in prep ]
-    #pred = reduce(vcat, map(m->vec(m)', vec(exps)) )
-    pred = build_process_predictor(obs, prep)
-    return qpt_ml(pred, meas, vars)
-end
