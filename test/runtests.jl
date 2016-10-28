@@ -88,7 +88,12 @@ end
 function test_qpt_ml(n=1000;ρ=zeros(Float64,0,0))
 
     obs  = [X, Y, Z]
-    prep = map(projector,[ [1,0], [0,1], 1/sqrt(2)*[1,1], 1/sqrt(2)*[1,-1], 1/sqrt(2)*[1,-1im], 1/sqrt(2)*[1,1im] ] )
+    prep = map(projector, Vector[ [1,0],
+                                  [0,1],
+                                  1/sqrt(2)*[1,1],
+                                  1/sqrt(2)*[1,-1],
+                                  1/sqrt(2)*[1,-1im],
+                                  1/sqrt(2)*[1,1im] ] )
 
     exps = [ choi_liou_involution(vec(o)*vec(p)') for o in obs, p in prep ]
 
