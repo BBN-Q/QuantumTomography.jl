@@ -105,7 +105,7 @@ function test_qpt_ml(n=1000;ρ=zeros(Float64,0,0))
 
     asymptotic_means = real(pred*vec(ρ))
 
-    samples = [ rand(Bernoulli((μ+1)/2),n) for μ in asymptotic_means ]
+    samples = Vector{Int}[ rand(Bernoulli((μ+1)/2),n) for μ in asymptotic_means ]
     sample_mean = 2*map(mean,samples)-1
     sample_var  = 4*map(var,samples)/n
 
