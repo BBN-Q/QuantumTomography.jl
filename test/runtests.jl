@@ -1,8 +1,8 @@
 using Base.Test,
-      Cliffords, 
+      Cliffords,
       Distributions,
-      QuantumInfo, 
-      QuantumTomography, 
+      QuantumInfo,
+      QuantumTomography,
       RandomQuantum,
       SchattenNorms,
       SCS
@@ -18,29 +18,29 @@ end
 
 function test_qst_freels(ρ, obs; n=10_000, asymptotic=false)
     tomo = FreeLSStateTomo(obs)
-    
+
     asymptotic_means = real(predict(tomo,ρ))
 
     samples = asymptotic ? asymptotic_means : Float64[ rand(Binomial(n,μ))/n for μ in asymptotic_means ]
     sample_mean = samples
     sample_var  = n*(samples - samples.^2)/(n-1)
-    
+
     ρest, obj, status = fit(tomo, sample_mean, asymptotic ? ones(length(samples)) : sample_var);
-    
+
     return status, trnorm(ρ-ρest), obj, ρest
 end
 
 function test_qst_freels_gls(ρ, obs; n=10_000, asymptotic=false)
     tomo = FreeLSStateTomo(obs)
-    
+
     asymptotic_means = real(predict(tomo,ρ))
 
     samples = asymptotic ? asymptotic_means : Float64[ rand(Binomial(n,μ))/n for μ in asymptotic_means ]
     sample_mean = samples
     sample_var  = n*(samples - samples.^2)/(n-1)
-    
+
     ρest, obj, status = fit(tomo, sample_mean, asymptotic ? ones(length(samples)) : sample_var, algorithm=:GLS);
-    
+
     return status, trnorm(ρ-ρest), obj, ρest
 end
 
@@ -52,9 +52,9 @@ function test_qst_ls(ρ, obs; n=10_000, asymptotic=false)
     samples = asymptotic ? asymptotic_means : Float64[ rand(Binomial(n,μ))/n for μ in asymptotic_means ]
     sample_mean = samples
     sample_var  = n*(samples - samples.^2)/(n-1)
-    
+
     ρest, obj, status = fit(tomo, sample_mean, asymptotic ? ones(length(samples)) : sample_var);
-    
+
     return status, trnorm(ρ-ρest), obj, ρest
 end
 
@@ -62,7 +62,7 @@ function test_qst_ml(ρ, obs; n=10_000, β=0.0, asymptotic=false, alt=false, max
     tomo = MLStateTomo(obs,β)
 
     asymptotic_means = real(predict(tomo,ρ))
-    
+
     samples = asymptotic ? asymptotic_means[1:3] : Float64[rand(Binomial(n,μ))/n for μ in asymptotic_means[1:3]]
     append!(samples,1-samples)
 
@@ -75,7 +75,7 @@ function test_qst_hml(ρ, obs; n=10_000, β=0.0, asymptotic=false, alt=false, ma
     tomo = MLStateTomo(obs,β)
 
     asymptotic_means = real(predict(tomo,ρ))
-    
+
     samples = asymptotic ? asymptotic_means[1:3] : Float64[rand(Binomial(n,μ))/n for μ in asymptotic_means[1:3]]
     append!(samples,1-samples)
 
@@ -85,50 +85,82 @@ function test_qst_hml(ρ, obs; n=10_000, β=0.0, asymptotic=false, alt=false, ma
 end
 
 
-function test_qpt_ml(n=1000;ρ=zeros(Float64,0,0))
+function test_qpt_free_lsq(n=1000; E=zeros(Complex128,0,0))
 
-    obs  = Matrix[ [0 1; 1 0], [0 -1im; 1im 0], pauli(3) ]
-    prep = map(projector,Vector[ [1;0], [0;1], 1/sqrt(2)*[1;1], 1/sqrt(2)*[1;-1], 1/sqrt(2)*[1;-1im], 1/sqrt(2)*[1;1im] ] )
-    
-    exps = Matrix[ choi_liou_involution(vec(o)*vec(p)') for o in obs, p in prep ]
+    prep = map(projector, Vector[ [1,0],
+                                  [0,1],
+                                  1/sqrt(2)*[1,1],
+                                  1/sqrt(2)*[1,-1],
+                                  1/sqrt(2)*[1,-1im],
+                                  1/sqrt(2)*[1,1im] ] )
 
-    pred = reduce(vcat, map(m->vec(m)', vec(exps)) )
-    
-    if trace(ρ) == 0.0
-        ρ = choi_liou_involution(liou(rand_unitary(2))) 
+    if size(E) == (0,0)
+        E = liou(rand(RandomQuantum.ClosedHaarEnsemble(2)))
     end
-    
-    asymptotic_means = real(pred*vec(ρ))
 
-    samples = Float64[ rand(Bernoulli((μ+1)/2),n) for μ in asymptotic_means ]
-    sample_mean = 2*map(mean,samples)-1
-    sample_var  = 4*map(var,samples)/n
-    
-    ρest, obj, status = qpt_ml(pred, sample_mean, sample_var);
-    
-    # get the normalization right
-    choi_err = ρ-ρest |> choi_liou_involution |> liou2choi
+    tomo = FreeLSProcessTomo(prep, prep)
 
-    println("Status                  : $(status)")
-    println("Diamond norm lower bound: $(snorm(choi_err,1))")
-    println("χ² error                : $(obj)")
-    println("Eigvals ρ:")
-    for ev in eigvals(ρ)
-        println(ev)
+    asymptotic_means = predict(tomo, E)
+
+    Eest, obj, status = fit(tomo, asymptotic_means)
+
+    choi_err = liou2choi(Eest - E)
+
+    #println("Status                  : $(status)")
+    #println("Diamond norm lower bound: $(snorm(choi_err,1))")
+    #println("χ² error                : $(obj)")
+    #println("Eigvals ρ:")
+    #for ev in eigvals(E)
+    #    println(ev)
+    #end
+    #println("Eigvals ρest:")
+    #for ev in eigvals(Eest)
+    #    println(real(ev))
+    #end
+
+    return status, snorm(choi_err,1), obj, Eest
+end
+
+function test_qpt_lsq(n=1000; E=zeros(Complex128,0,0))
+
+    prep = map(projector, Vector[ [1,0],
+                                  [0,1],
+                                  1/sqrt(2)*[1,1],
+                                  1/sqrt(2)*[1,-1],
+                                  1/sqrt(2)*[1,-1im],
+                                  1/sqrt(2)*[1,1im] ] )
+
+    if size(E) == (0,0)
+        E = liou(rand(RandomQuantum.ClosedHaarEnsemble(2)))
     end
-    println("Eigvals ρest:")
-    for ev in eigvals(ρest)
-        println(real(ev))
-    end
-    
-    return status, snorm(choi_err,1), obj, abs(choi_err), eigvals(ρ), eigvals(ρest)
+
+    tomo = LSProcessTomo(prep, prep)
+
+    asymptotic_means = predict(tomo, E)
+
+    Eest, obj, status = fit(tomo, asymptotic_means)
+
+    choi_err = liou2choi(Eest - E)
+
+    #println("Status                  : $(status)")
+    #println("Diamond norm lower bound: $(snorm(choi_err,1))")
+    #println("χ² error                : $(obj)")
+    #println("Eigvals ρ:")
+    #for ev in eigvals(E)
+    #    println(ev)
+    #end
+    #println("Eigvals ρest:")
+    #for ev in eigvals(Eest)
+    #    println(real(ev))
+    #end
+
+    return status, snorm(choi_err,1), obj, Eest
 end
 
 function test_trb(da,db)
     r = rand_mixed_state(da*db)
     norm(trace(r,[da,db],2)-mat(trb_sop(da,db)*vec(r)),1)
 end
-
 
 ρ, obs = qst_test_setup()
 
@@ -140,7 +172,7 @@ srand(314159)
 for k = 1:kmax
 
     ρ = .98*projector(rand(FubiniStudyPureState(2)))+.02*rand(HilbertSchmidtMixedState(2))
-    
+
     status, enorm, obj, ρest = test_qst_freels(ρ, obs, asymptotic=true)
     result[k,1] = enorm
     # println("Constrained LS with ∞ counts:")
@@ -150,7 +182,7 @@ for k = 1:kmax
     # println("   estimate  : $ρest")
     @test status == :Optimal
     @test enorm < 1e-6
-    
+
     status, enorm, _, ρest = test_qst_freels(ρ, obs, asymptotic=false)
     result[k,2] = enorm
     # println("Constrained LS with 10_000 counts:")
@@ -170,7 +202,7 @@ for k = 1:kmax
     # println("   estimate  : $ρest")
     @test status == :Optimal
     @test enorm < 1e-6
-    
+
     status, enorm, _, ρest = test_qst_ls(ρ, obs, asymptotic=false)
     result[k,2] = enorm
     # println("Constrained LS with 10_000 counts:")
@@ -180,7 +212,7 @@ for k = 1:kmax
     # println("   estimate  : $ρest")
     @test status == :Optimal || ( status == :UnknownError && enorm < 5e-2 )
     @test enorm < 5e-2
-    
+
     status, enorm, _, ρest = test_qst_ml(ρ, obs, asymptotic=true)
     result[k,3] = enorm
     # println("Strict ML with mean counts:")
@@ -190,7 +222,7 @@ for k = 1:kmax
     # println("   estimate  : $ρest")
     @test status == :Optimal
     @test enorm < 5e-2
-    
+
     status, enorm, _, ρest = test_qst_ml(ρ, obs, asymptotic=false)
     result[k,4] = enorm
     # println("Strict ML with 10_000 counts:")
@@ -200,7 +232,7 @@ for k = 1:kmax
     # println("   estimate  : $ρest")
     @test status == :Optimal || status == :MaxIter
     @test enorm < 5e-2
-    
+
     status, enorm, _, ρest = test_qst_ml(ρ, obs, β=0.001, asymptotic=true)
     result[k,5] = enorm
     # println("Hedged ML with mean counts and β=0.04:")
@@ -210,7 +242,7 @@ for k = 1:kmax
     # println("   estimate  : $ρest")
     @test status == :Optimal
     @test enorm < 5e-2
-    
+
     status, enorm, _, ρest = test_qst_ml(ρ, obs, β=0.001, asymptotic=false)
     result[k,6] = enorm
     # println("Hedged ML with 10_000 counts and β=0.04:")
@@ -231,9 +263,18 @@ for k = 1:kmax
     # println(enorm)
     #@test status == :Optimal
     #@test enorm < 5e-2
-    
+
+    status, enorm, _, Eest = test_qpt_free_lsq()
+    @test status == :Optimal
+    @test enorm < 1e-8
+
+    status, enorm, _, Eest = test_qpt_lsq()
+    @test status == :Optimal
+    @test enorm < 1e-8
+
     #println(result[k,:])
 end
-@printf "\n"
+#@printf "\n"
+
 
 #println(result)
