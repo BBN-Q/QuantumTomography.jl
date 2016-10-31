@@ -102,7 +102,43 @@ function test_qpt_free_lsq(n=1000; E=zeros(Complex128,0,0))
 
     asymptotic_means = predict(tomo, E)
 
-    Eest, obj, status = fit(tomo, asymptotic_means);
+    Eest, obj, status = fit(tomo, asymptotic_means)
+
+    choi_err = liou2choi(Eest - E)
+
+    #println("Status                  : $(status)")
+    #println("Diamond norm lower bound: $(snorm(choi_err,1))")
+    #println("χ² error                : $(obj)")
+    #println("Eigvals ρ:")
+    #for ev in eigvals(E)
+    #    println(ev)
+    #end
+    #println("Eigvals ρest:")
+    #for ev in eigvals(Eest)
+    #    println(real(ev))
+    #end
+
+    return status, snorm(choi_err,1), obj, Eest
+end
+
+function test_qpt_lsq(n=1000; E=zeros(Complex128,0,0))
+
+    prep = map(projector, Vector[ [1,0],
+                                  [0,1],
+                                  1/sqrt(2)*[1,1],
+                                  1/sqrt(2)*[1,-1],
+                                  1/sqrt(2)*[1,-1im],
+                                  1/sqrt(2)*[1,1im] ] )
+
+    if size(E) == (0,0)
+        E = liou(rand(RandomQuantum.ClosedHaarEnsemble(2)))
+    end
+
+    tomo = LSProcessTomo(prep, prep)
+
+    asymptotic_means = predict(tomo, E)
+
+    Eest, obj, status = fit(tomo, asymptotic_means)
 
     choi_err = liou2choi(Eest - E)
 
@@ -229,6 +265,10 @@ for k = 1:kmax
     #@test enorm < 5e-2
 
     status, enorm, _, Eest = test_qpt_free_lsq()
+    @test status == :Optimal
+    @test enorm < 1e-8
+
+    status, enorm, _, Eest = test_qpt_lsq()
     @test status == :Optimal
     @test enorm < 1e-8
 
