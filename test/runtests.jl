@@ -287,11 +287,12 @@ end
 
 for k = 1:kmax
 
-    E = liou(rand(ClosedHaarEnsemble(2)))
+    # E = liou(rand(ClosedHaarEnsemble(2)))
+    E = rand(OpenHaarEnsemble(2,3))
 
     status, enorm, _, Eest = test_qpt_free_lsq(10_000, E=E, asymptotic=true)
     @test status == :Optimal
-    @test enorm < 1e-8
+    @test enorm < 1e-7
 
     status, enorm, _, Eest = test_qpt_free_lsq(100_000, E=E, asymptotic=false)
     @test status == :Optimal
@@ -299,8 +300,12 @@ for k = 1:kmax
 
     status, enorm, _, Eest = test_qpt_lsq(10_000, E=E, asymptotic=true)
     @test status == :Optimal
-    @test enorm < 1e-8
+    @test enorm < 1e-7
 
+    status, enorm, _, Eest = test_qpt_lsq(100_000, E=E, asymptotic=false)
+    println(enorm)
+    #@test status == :Optimal
+    @test enorm < 1.1e-2
 
     #println(result[k,:])
 end
