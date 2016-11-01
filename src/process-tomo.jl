@@ -57,11 +57,12 @@ function fit(method::FreeLSProcessTomo,
     if length(vars) != method.outputdim
         error("The number of sample variances does not match the required number of experiments")
     end
-    d = round(Int, size(method.pred,2) |> sqrt)
     if any(vars.<0)
-        error("Variances must be positive for generalized least squares process tomography.")
+        error("Samples variances must be positive for generalized least squares process tomography.")
     end
-    return (reshape((sqrt(vars)\method.pred)\means,d,d),
+    d = round(Int, size(method.pred,2) |> sqrt)
+    reg = (Diagonal(sqrt(vars))\method.pred)\means
+    return (reshape(reg,d,d),
             norm((method.pred*reg-means)./sqrt(vars),2)^2,
             :Optimal)
 end

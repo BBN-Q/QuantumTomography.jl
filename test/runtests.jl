@@ -85,7 +85,7 @@ function test_qst_hml(ρ, obs; n=10_000, β=0.0, asymptotic=false, alt=false, ma
 end
 
 
-function test_qpt_free_lsq(n=1000; E=zeros(Complex128,0,0))
+function test_qpt_free_lsq(n=1000; E=zeros(Complex128,0,0), asymptotic=false)
 
     prep = map(projector, Vector[ [1,0],
                                   [0,1],
@@ -94,15 +94,25 @@ function test_qpt_free_lsq(n=1000; E=zeros(Complex128,0,0))
                                   1/sqrt(2)*[1,-1im],
                                   1/sqrt(2)*[1,1im] ] )
 
+    u = rand(ClosedHaarEnsemble(2))
+
+    obs = map(ψ->projector(u*ψ), Vector[ [1,0],
+                                         [0,1],
+                                         1/sqrt(2)*[1,1],
+                                         1/sqrt(2)*[1,-1im] ] )
+
     if size(E) == (0,0)
         E = liou(rand(RandomQuantum.ClosedHaarEnsemble(2)))
     end
 
-    tomo = FreeLSProcessTomo(prep, prep)
+    tomo = FreeLSProcessTomo(prep, obs)
 
     asymptotic_means = predict(tomo, E)
 
-    Eest, obj, status = fit(tomo, asymptotic_means)
+    means = asymptotic ? asymptotic_means : map(p->rand(Binomial(n,p))/n, asymptotic_means)
+    vars = means .* (1-means) / n
+
+    Eest, obj, status = asymptotic ? fit(tomo, asymptotic_means) : fit(tomo, means, vars)
 
     choi_err = liou2choi(Eest - E)
 
@@ -121,7 +131,7 @@ function test_qpt_free_lsq(n=1000; E=zeros(Complex128,0,0))
     return status, snorm(choi_err,1), obj, Eest
 end
 
-function test_qpt_lsq(n=1000; E=zeros(Complex128,0,0))
+function test_qpt_lsq(n=1000; E=zeros(Complex128,0,0), asymptotic=false)
 
     prep = map(projector, Vector[ [1,0],
                                   [0,1],
@@ -130,15 +140,25 @@ function test_qpt_lsq(n=1000; E=zeros(Complex128,0,0))
                                   1/sqrt(2)*[1,-1im],
                                   1/sqrt(2)*[1,1im] ] )
 
+    u = rand(ClosedHaarEnsemble(2))
+
+    obs = map(ψ->projector(u*ψ), Vector[ [1,0],
+                                         [0,1],
+                                         1/sqrt(2)*[1,1],
+                                         1/sqrt(2)*[1,-1im] ] )
+
     if size(E) == (0,0)
         E = liou(rand(RandomQuantum.ClosedHaarEnsemble(2)))
     end
 
-    tomo = LSProcessTomo(prep, prep)
+    tomo = LSProcessTomo(prep, obs)
 
     asymptotic_means = predict(tomo, E)
 
-    Eest, obj, status = fit(tomo, asymptotic_means)
+    means = asymptotic ? asymptotic_means : map(p->rand(Binomial(n,p))/n, asymptotic_means)
+    vars = means .* (1-means) / n
+
+    Eest, obj, status = asymptotic ? fit(tomo, asymptotic_means) : fit(tomo, means, vars)
 
     choi_err = liou2choi(Eest - E)
 
@@ -269,13 +289,17 @@ for k = 1:kmax
 
     E = liou(rand(ClosedHaarEnsemble(2)))
 
-    status, enorm, _, Eest = test_qpt_free_lsq(10_000, E=E)
+    status, enorm, _, Eest = test_qpt_free_lsq(10_000, E=E, asymptotic=true)
     @test status == :Optimal
     @test enorm < 1e-8
 
-    status, enorm, _, Eest = test_qpt_lsq(10_000, E=E)
+    #status, enorm, _, Eest = test_qpt_free_lsq(10_000, E=E, asymptotic=false)
+    #println(enorm)
+
+    status, enorm, _, Eest = test_qpt_lsq(10_000, E=E, asymptotic=true)
     @test status == :Optimal
     @test enorm < 1e-8
+
 
     #println(result[k,:])
 end
