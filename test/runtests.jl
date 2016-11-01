@@ -263,12 +263,17 @@ for k = 1:kmax
     # println(enorm)
     #@test status == :Optimal
     #@test enorm < 5e-2
+end
 
-    status, enorm, _, Eest = test_qpt_free_lsq()
+for k = 1:kmax
+
+    E = liou(rand(ClosedHaarEnsemble(2)))
+
+    status, enorm, _, Eest = test_qpt_free_lsq(10_000, E=E)
     @test status == :Optimal
     @test enorm < 1e-8
 
-    status, enorm, _, Eest = test_qpt_lsq()
+    status, enorm, _, Eest = test_qpt_lsq(10_000, E=E)
     @test status == :Optimal
     @test enorm < 1e-8
 
