@@ -61,7 +61,8 @@ function fit(method::FreeLSProcessTomo,
         error("Samples variances must be positive for generalized least squares process tomography.")
     end
     d = round(Int, size(method.pred,2) |> sqrt)
-    reg = (Diagonal(sqrt(vars))\method.pred)\means
+    # weighted least squares
+    reg = (Diagonal(1./sqrt(vars))*method.pred)\(Diagonal(1./sqrt(vars))*means)
     return (reshape(reg,d,d),
             norm((method.pred*reg-means)./sqrt(vars),2)^2,
             :Optimal)
