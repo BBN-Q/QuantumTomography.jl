@@ -303,7 +303,7 @@ for k = 1:kmax
     @test enorm < 1e-7
 
     status, enorm, _, Eest = test_qpt_lsq(100_000, E=E, asymptotic=false)
-    println(enorm)
+    #println(enorm)
     #@test status == :Optimal
     @test enorm < 1.1e-2
 
