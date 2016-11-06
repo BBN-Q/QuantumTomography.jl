@@ -4,8 +4,7 @@ using Base.Test,
       QuantumInfo,
       QuantumTomography,
       RandomQuantum,
-      SchattenNorms,
-      SCS
+      SchattenNorms
 
 function qst_test_setup()
     obs = Matrix[ (complex(Pauli(i))+eye(2))/2 for i in 1:3 ]
@@ -292,7 +291,7 @@ for k = 1:kmax
 
     status, enorm, _, Eest = test_qpt_free_lsq(10_000, E=E, asymptotic=true)
     @test status == :Optimal
-    @test enorm < 1e-7
+    @test enorm < 1e-3
 
     status, enorm, _, Eest = test_qpt_free_lsq(100_000, E=E, asymptotic=false)
     @test status == :Optimal
@@ -300,11 +299,10 @@ for k = 1:kmax
 
     status, enorm, _, Eest = test_qpt_lsq(10_000, E=E, asymptotic=true)
     @test status == :Optimal
-    @test enorm < 1e-7
+    @test enorm < 1e-3
 
     status, enorm, _, Eest = test_qpt_lsq(100_000, E=E, asymptotic=false)
-    #println(enorm)
-    #@test status == :Optimal
+    @test status == :Optimal || ( status == :UnknownError && enorm < 1.1e-2 )
     @test enorm < 1.1e-2
 
     #println(result[k,:])
