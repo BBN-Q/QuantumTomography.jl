@@ -86,19 +86,19 @@ end
 
 function test_qpt_free_lsq(n=1000; E=zeros(Complex128,0,0), asymptotic=false)
 
-    prep = map(projector, Vector[ [1,0],
-                                  [0,1],
-                                  1/sqrt(2)*[1,1],
-                                  1/sqrt(2)*[1,-1],
-                                  1/sqrt(2)*[1,-1im],
-                                  1/sqrt(2)*[1,1im] ] )
+    prep = map(projector, [ [1,0],
+                            [0,1],
+                            1/sqrt(2)*[1,1],
+                            1/sqrt(2)*[1,-1],
+                            1/sqrt(2)*[1,-1im],
+                            1/sqrt(2)*[1,1im] ] )
 
     u = rand(ClosedHaarEnsemble(2))
 
-    obs = map(ψ->projector(u*ψ), Vector[ [1,0],
-                                         [0,1],
-                                         1/sqrt(2)*[1,1],
-                                         1/sqrt(2)*[1,-1im] ] )
+    obs = map(ψ->projector(u*ψ), [ [1,0],
+                                   [0,1],
+                                   1/sqrt(2)*[1,1],
+                                   1/sqrt(2)*[1,-1im] ] )
 
     if size(E) == (0,0)
         E = liou(rand(RandomQuantum.ClosedHaarEnsemble(2)))
@@ -132,19 +132,19 @@ end
 
 function test_qpt_lsq(n=1000; E=zeros(Complex128,0,0), asymptotic=false)
 
-    prep = map(projector, Vector[ [1,0],
-                                  [0,1],
-                                  1/sqrt(2)*[1,1],
-                                  1/sqrt(2)*[1,-1],
-                                  1/sqrt(2)*[1,-1im],
-                                  1/sqrt(2)*[1,1im] ] )
+    prep = map(projector, [ [1,0],
+                            [0,1],
+                            1/sqrt(2)*[1,1],
+                            1/sqrt(2)*[1,-1],
+                            1/sqrt(2)*[1,-1im],
+                            1/sqrt(2)*[1,1im] ] )
 
     u = rand(ClosedHaarEnsemble(2))
 
-    obs = map(ψ->projector(u*ψ), Vector[ [1,0],
-                                         [0,1],
-                                         1/sqrt(2)*[1,1],
-                                         1/sqrt(2)*[1,-1im] ] )
+    obs = map(ψ->projector(u*ψ), [ [1,0],
+                                   [0,1],
+                                   1/sqrt(2)*[1,1],
+                                   1/sqrt(2)*[1,-1im] ] )
 
     if size(E) == (0,0)
         E = liou(rand(RandomQuantum.ClosedHaarEnsemble(2)))

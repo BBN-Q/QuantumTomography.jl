@@ -2,12 +2,12 @@ export FreeLSProcessTomo,
        LSProcessTomo
 
 function build_liou_process_predictor(prep::Vector, obs::Vector)
-    exps = Matrix[ vec(p)*vec(o)' for o in obs, p in prep ]
+    exps = [ vec(p)*vec(o)' for o in obs, p in prep ]
     return reduce(vcat, map(m->vec(m)', vec(exps)) )
 end
 
 function build_choi_process_predictor(prep::Vector, obs::Vector)
-    exps = Matrix[ choi_liou_involution(vec(o)*vec(p)') for o in obs, p in prep ]
+    exps = [ choi_liou_involution(vec(o)*vec(p)') for o in obs, p in prep ]
     return reduce(vcat, map(m->vec(m)', vec(exps)) )
 end
 
@@ -23,7 +23,7 @@ type FreeLSProcessTomo
     obscount::Int
     inputdim::Int
     outputdim::Int
-    pred::Matrix
+    pred::Matrix{Complex128}
     function FreeLSProcessTomo(states::Vector,obs::Vector)
         pred = build_liou_process_predictor(states, obs)
         outputdim = size(pred,1)
@@ -102,7 +102,7 @@ type LSProcessTomo
     obscount::Int
     inputdim::Int
     outputdim::Int
-    pred::Matrix
+    pred::Matrix{Complex128}
     function LSProcessTomo(states::Vector,obs::Vector)
         pred = build_choi_process_predictor(states, obs)
         outputdim = size(pred,1)
