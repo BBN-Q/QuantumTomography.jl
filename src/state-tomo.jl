@@ -6,7 +6,7 @@ export fit,
        LSStateTomo,
        MLStateTomo
 
-function build_state_predictor(obs::Vector{Matrix})
+function build_state_predictor{T}(obs::Vector{Matrix{T}})
     return reduce(vcat,[vec(o)' for o in obs])
 end
 
@@ -20,7 +20,7 @@ measurements that are performed on the state being reconstructed.
 type FreeLSStateTomo
     inputdim::Int
     outputdim::Int
-    pred::Matrix
+    pred::Matrix{Complex128}
     function FreeLSStateTomo(obs::Vector)
         pred = build_state_predictor(obs)
         outputdim = size(pred,1)
@@ -86,7 +86,7 @@ be estimated from observations (including variances) by using the
 type LSStateTomo
     inputdim::Int
     outputdim::Int
-    realpred::Matrix
+    realpred::Matrix{Float64}
     function LSStateTomo(obs::Vector)
         pred = build_state_predictor(obs)
         outputdim = size(pred,1)
@@ -144,7 +144,7 @@ either a log determinant or log minimum eigenvalue penalty is applied.
 **AT THE MOMENT HEDGING IS ONLY APPLIED IN fitA, AND IS NOT CURRENTLY WORKING**
 """
 type MLStateTomo
-    effects::Vector
+    effects::Vector{Matrix{Complex128}}
     dim::Int64
     β::Float64
     function MLStateTomo(v::Vector,β=0.0)
@@ -305,4 +305,3 @@ function fit(method::MLStateTomo,
     end
     return ρk, LL(ρk,method.effects,freq), status
 end
-

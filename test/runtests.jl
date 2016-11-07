@@ -7,8 +7,8 @@ using Base.Test,
       SchattenNorms
 
 function qst_test_setup()
-    obs = Matrix[ (complex(Pauli(i))+eye(2))/2 for i in 1:3 ]
-    append!(obs, Matrix[ (-complex(Pauli(i))+eye(2))/2 for i in 1:3 ])
+    obs = [ (complex(Pauli(i))+eye(2))/2 for i in 1:3 ]
+    append!(obs, [ (-complex(Pauli(i))+eye(2))/2 for i in 1:3 ])
 
     ρ = .98*projector(rand(FubiniStudyPureState(2)))+.02*rand(HilbertSchmidtMixedState(2))
 
