@@ -16,7 +16,7 @@ module QuantumTomography
 
 import Distributions.fit
 
-using Convex, Distributions, SCS, QuantumInfo
+using Convex, Distributions, QuantumInfo, Mosek#, SCS
 
 include("state-tomo.jl")
 

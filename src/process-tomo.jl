@@ -135,8 +135,8 @@ begin
     function fit(method::LSProcessTomo,
                  means::Vector{Float64},
                  vars = ones(length(means));
-                 #solver = MosekSolver(LOG=0))
-                 solver = SCSSolver(verbose=0, max_iters=10_000, eps = 1e-8))
+                 solver = MosekSolver(LOG=0))
+                 #solver = SCSSolver(verbose=0, max_iters=10_000, eps = 1e-8))
 
         if length(means) != length(vars) || size(method.pred,1) != length(means)
             error("Size of observations and predictons do not match.")
