@@ -58,11 +58,13 @@ function fit(method::FreeLSStateTomo, means::Vector{Float64}, vars::Vector{Float
         reg = method.pred\means
         return reshape(reg,d,d), norm(method.pred*reg-means,2)/length(means), :Optimal
     elseif algorithm==:GLS
-        if any(vars<0)
+        if any(vars .< 0)
             error("Variances must be positive for generalized least squares.")
         end
-        reg = (sqrt(vars)\method.pred)\means
-        return reshape((sqrt(vars)\method.pred)\means,d,d), sqrt(dot(method.pred*reg-means,diagm(vars)\(method.pred*reg-means)))/length(means), :Optimal
+        reg = (Diagonal(1./sqrt(vars))*method.pred)\(Diagonal(1./sqrt(vars))*means)
+        return reshape(reg,d,d),
+               sqrt(dot(method.pred*reg-means,Diagonal(vars)\(method.pred*reg-means)))/length(means),
+               :Optimal
     else
         error("Unrecognized method for least squares state tomography")
     end
