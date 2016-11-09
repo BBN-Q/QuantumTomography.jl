@@ -22,6 +22,7 @@ type FreeLSStateTomo
     outputdim::Int
     pred::Matrix{Complex128}
     function FreeLSStateTomo(obs::Vector)
+        @assert maximum([maximum(abs(o-o')/2) for o in obs]) < 1e-5 "Observables must be Hermitian"
         pred = build_state_predictor(obs)
         outputdim = size(pred,1)
         inputdim = size(pred,2)
@@ -90,6 +91,7 @@ type LSStateTomo
     outputdim::Int
     realpred::Matrix{Float64}
     function LSStateTomo(obs::Vector)
+        @assert maximum([maximum(abs(o-o')/2) for o in obs]) < 1e-5 "Observables must be Hermitian"
         pred = build_state_predictor(obs)
         outputdim = size(pred,1)
         inputdim = size(pred,2)
@@ -149,11 +151,18 @@ type MLStateTomo
     effects::Vector{Matrix{Complex128}}
     dim::Int64
     β::Float64
+    # TODO: perhaps for ML it is better to have the observables pecified as
+    #       a vector of vectors of observables? Each vector of observable is a POVM
+    #       that should add up to the identity
     function MLStateTomo(v::Vector,β=0.0)
         for e in v
             if !ishermitian(e) || !ispossemidef(e) || real(trace(e))>1
                 error("MLStateTomo state tomography is parameterized by POVM effects only.")
             end
+        end
+        sv = sum(v)
+        if !isdiag(sv) || !isapprox(maximum(abs(diag(sv)))-minimum(abs(diag(sv))),0.0)
+            error("POVM effects must add up to the identity.")
         end
         if !all([size(e,1)==size(e,2) for e in v]) || !all([size(v[1],1)==size(e,1) for e in v])
                 error("All effects must be square matrices, and they must have have the same dimension.")
