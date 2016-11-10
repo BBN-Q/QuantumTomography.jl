@@ -50,25 +50,30 @@ routine is used depends on the type of the `method`. The possible types are
    + MLStateTomo : maximum-likelihood, maximum-entropy state tomography constrained to physical states
 
 """
-function fit(method::FreeLSStateTomo, means::Vector{Float64}, vars::Vector{Float64}=-ones(length(means)); algorithm=:OLS)
+function fit(method::FreeLSStateTomo,
+             means::Vector{Float64})
     if length(means) != method.outputdim
         error("The number of expected means does not match the required number of experiments")
     end
     d = round(Int, method.inputdim |> sqrt)
-    if algorithm==:OLS
-        reg = method.pred\means
-        return reshape(reg,d,d), norm(method.pred*reg-means,2)/length(means), :Optimal
-    elseif algorithm==:GLS
-        if any(vars .< 0)
-            error("Variances must be positive for generalized least squares.")
-        end
-        reg = (Diagonal(1./sqrt(vars))*method.pred)\(Diagonal(1./sqrt(vars))*means)
-        return reshape(reg,d,d),
-               sqrt(dot(method.pred*reg-means,Diagonal(vars)\(method.pred*reg-means)))/length(means),
-               :Optimal
-    else
-        error("Unrecognized method for least squares state tomography")
+    reg = method.pred\means
+    return reshape(reg,d,d), norm(method.pred*reg-means,2)/length(means), :Optimal
+end
+
+function fit(method::FreeLSStateTomo,
+             means::Vector{Float64},
+             vars::Vector{Float64})
+    if length(means) != method.outputdim
+        error("The number of expected means does not match the required number of experiments")
     end
+    d = round(Int, method.inputdim |> sqrt)
+    if any(vars .< 0)
+        error("Variances must be positive for generalized least squares.")
+    end
+    reg = (Diagonal(1./sqrt(vars))*method.pred)\(Diagonal(1./sqrt(vars))*means)
+    return reshape(reg,d,d),
+           sqrt(dot(method.pred*reg-means,Diagonal(vars)\(method.pred*reg-means)))/length(means),
+           :Optimal
 end
 
 

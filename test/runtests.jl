@@ -21,10 +21,8 @@ function test_qst_freels(ρ, obs; n=10_000, asymptotic=false)
     asymptotic_means = real(predict(tomo,ρ))
 
     samples = asymptotic ? asymptotic_means : Float64[ rand(Binomial(n,μ))/n for μ in asymptotic_means ]
-    sample_mean = samples
-    sample_var  = n*(samples - samples.^2)/(n-1)
 
-    ρest, obj, status = fit(tomo, sample_mean, asymptotic ? ones(length(samples)) : sample_var);
+    ρest, obj, status = fit(tomo, samples)
 
     return status, trnorm(ρ-ρest), obj, ρest
 end
@@ -38,7 +36,7 @@ function test_qst_freels_gls(ρ, obs; n=10_000, asymptotic=false)
     sample_mean = samples
     sample_var  = n*(samples - samples.^2)/(n-1)
 
-    ρest, obj, status = fit(tomo, sample_mean, asymptotic ? ones(length(samples)) : sample_var, algorithm=:GLS);
+    ρest, obj, status = fit(tomo, sample_mean, asymptotic ? ones(length(samples)) : sample_var)
 
     return status, trnorm(ρ-ρest), obj, ρest
 end
