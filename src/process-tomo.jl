@@ -11,6 +11,10 @@ function build_choi_process_predictor(prep::Vector, obs::Vector)
     return reduce(vcat, map(m->vec(m)', vec(exps)) )
 end
 
+function isstate{T}(m::Matrix{T})
+    ishermitian(m) && isapprox(trace(m),1.0)
+end
+
 """
 `FreeLSProcessTomo(states::Vector,obs::Vector)`
 
@@ -25,6 +29,9 @@ type FreeLSProcessTomo
     outputdim::Int
     pred::Matrix{Complex128}
     function FreeLSProcessTomo(states::Vector,obs::Vector)
+        @assert all([ishermitian(o) for o in obs]) "Observables must be Hermitian"
+        @assert all([isstate(o) for o in states])  "States must be valid density matrices"
+
         pred = build_liou_process_predictor(states, obs)
         outputdim = size(pred,1)
         inputdim = size(pred,2)
@@ -104,6 +111,9 @@ type LSProcessTomo
     outputdim::Int
     pred::Matrix{Complex128}
     function LSProcessTomo(states::Vector,obs::Vector)
+        @assert all([ishermitian(o) for o in obs]) "Observables must be Hermitian"
+        @assert all([isstate(o) for o in states]) "States must be valid density matrices"
+
         pred = build_choi_process_predictor(states, obs)
         outputdim = size(pred,1)
         inputdim = size(pred,2)
