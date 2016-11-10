@@ -22,7 +22,7 @@ type FreeLSStateTomo
     outputdim::Int
     pred::Matrix{Complex128}
     function FreeLSStateTomo(obs::Vector)
-        @assert maximum([maximum(abs(o-o')/2) for o in obs]) < 1e-5 "Observables must be Hermitian"
+        @assert all([ishermitian(o) for o in obs]) "Observables must be Hermitian"
         pred = build_state_predictor(obs)
         outputdim = size(pred,1)
         inputdim = size(pred,2)
@@ -91,7 +91,7 @@ type LSStateTomo
     outputdim::Int
     realpred::Matrix{Float64}
     function LSStateTomo(obs::Vector)
-        @assert maximum([maximum(abs(o-o')/2) for o in obs]) < 1e-5 "Observables must be Hermitian"
+        @assert all([ishermitian(o) for o in obs]) "Observables must be Hermitian"
         pred = build_state_predictor(obs)
         outputdim = size(pred,1)
         inputdim = size(pred,2)
