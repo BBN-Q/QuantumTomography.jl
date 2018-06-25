@@ -124,7 +124,7 @@ function fit(method::LSStateTomo,
     # We assume that the predictions are always real-valued
     # and we need to do the complex->real translation manually since
     # Convex.jl does not support complex numbers yet
-    ivars = 1./sqrt(vars)
+    ivars = 1./sqrt.(vars)
 
     ρr = Variable(d,d)
     ρi = Variable(d,d)
@@ -166,7 +166,7 @@ type MLStateTomo
             end
         end
         sv = sum(v)
-        if !isdiag(sv) || !isapprox(maximum(abs(diag(sv)))-minimum(abs(diag(sv))),0.0)
+        if !isdiag(sv) || !isapprox(maximum(abs.(diag(sv)))-minimum(abs.(diag(sv))),0.0)
             error("POVM effects must add up to the identity.")
         end
         if !all([size(e,1)==size(e,2) for e in v]) || !all([size(v[1],1)==size(e,1) for e in v])
@@ -284,7 +284,7 @@ end
 
 function LL(ρ,E,obs)
     pr = Float64[real(trace(ρ*Ei)) for Ei in E]
-    sum(obs.*log(pr))
+    sum(obs.*log.(pr))
 end
 
 function fit(method::MLStateTomo,
