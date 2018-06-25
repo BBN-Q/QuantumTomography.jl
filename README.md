@@ -38,9 +38,9 @@ qubit, that can be given by the eigenstates of the 3 Pauli operators.
 ```julia
 julia> using Cliffords, QuantumTomography
 
-julia> obs = Matrix[ (complex(Pauli(i))+eye(2))/2 for i in 1:3 ];
+julia> obs = [ (complex(Pauli(i))+eye(2))/2 for i in 1:3 ];
 
-julia> append!(obs, Matrix[ (-complex(Pauli(i))+eye(2))/2 for i in 1:3 ]);
+julia> append!(obs, [ (-complex(Pauli(i))+eye(2))/2 for i in 1:3 ]);
 
 julia> tomo = LSStateTomo(obs);
 ```
