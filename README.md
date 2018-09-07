@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/BBN-Q/QuantumTomography.jl.svg?branch=master)](https://travis-ci.org/BBN-Q/QuantumTomography.jl)
+
 # QuantumTomography.jl
 
 This is a package that provides basic routines to perform quantum
