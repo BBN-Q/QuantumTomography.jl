@@ -84,7 +84,7 @@ function test_qst_hml(ρ, obs; n=10_000, β=0.0, asymptotic=false, alt=false, ma
 end
 
 
-function test_qpt_free_lsq(n=1000; E=zeros(Complex128,0,0), asymptotic=false)
+function test_qpt_free_lsq(n=1000; E=zeros(ComplexF64,0,0), asymptotic=false)
 
     prep = map(projector, [ [1,0],
                             [0,1],
@@ -130,7 +130,7 @@ function test_qpt_free_lsq(n=1000; E=zeros(Complex128,0,0), asymptotic=false)
     return status, snorm(choi_err,1), obj, Eest
 end
 
-function test_qpt_lsq(n=1000; E=zeros(Complex128,0,0), asymptotic=false)
+function test_qpt_lsq(n=1000; E=zeros(ComplexF64,0,0), asymptotic=false)
 
     prep = map(projector, [ [1,0],
                             [0,1],
