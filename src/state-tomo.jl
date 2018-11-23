@@ -6,7 +6,7 @@ export fit,
        LSStateTomo,
        MLStateTomo
 
-function build_state_predictor{T}(obs::Vector{Matrix{T}})
+function build_state_predictor(obs::Vector{Matrix{T}}) where T
     return reduce(vcat,[vec(o)' for o in obs])
 end
 
@@ -17,10 +17,10 @@ Free (unconstrained) least-squares state tomography algorithm. It is
 constructed from a vector of observables corresponding to
 measurements that are performed on the state being reconstructed.
 """
-type FreeLSStateTomo
+struct FreeLSStateTomo
     inputdim::Int
     outputdim::Int
-    pred::Matrix{Complex128}
+    pred::Matrix{ComplexF64}
     function FreeLSStateTomo(obs::Vector)
         @assert all([ishermitian(o) for o in obs]) "Observables must be Hermitian"
         pred = build_state_predictor(obs)
@@ -70,7 +70,7 @@ function fit(method::FreeLSStateTomo,
     if any(vars .< 0)
         error("Variances must be positive for generalized least squares.")
     end
-    reg = (Diagonal(1./sqrt(vars))*method.pred)\(Diagonal(1./sqrt(vars))*means)
+    reg = (Diagonal(1 ./ sqrt(vars)) * method.pred) \ (Diagonal(1 ./ sqrt(vars)) * means)
     return reshape(reg,d,d),
            sqrt(dot(method.pred*reg-means,Diagonal(vars)\(method.pred*reg-means)))/length(means),
            :Optimal
@@ -91,7 +91,7 @@ be estimated from observations (including variances) by using the
 `fit` function.
 
 """
-type LSStateTomo
+struct LSStateTomo
     inputdim::Int
     outputdim::Int
     realpred::Matrix{Float64}
@@ -124,7 +124,7 @@ function fit(method::LSStateTomo,
     # We assume that the predictions are always real-valued
     # and we need to do the complex->real translation manually since
     # Convex.jl does not support complex numbers yet
-    ivars = 1./sqrt.(vars)
+    ivars = 1 ./ sqrt.(vars)
 
     ρr = Variable(d,d)
     ρi = Variable(d,d)
@@ -152,8 +152,8 @@ either a log determinant or log minimum eigenvalue penalty is applied.
 
 **AT THE MOMENT HEDGING IS ONLY APPLIED IN fitA, AND IS NOT CURRENTLY WORKING**
 """
-type MLStateTomo
-    effects::Vector{Matrix{Complex128}}
+struct MLStateTomo
+    effects::Vector{Matrix{ComplexF64}}
     dim::Int64
     β::Float64
     # TODO: perhaps for ML it is better to have the observables pecified as
@@ -293,12 +293,12 @@ function fit(method::MLStateTomo,
              λ=0.0,  # entropy penalty
              tol=1e-9,
              maxiter=100_000,
-             ρ0 = eye(Complex128,method.dim))
+             ρ0 = eye(ComplexF64,method.dim))
     ϵ=1/δ
     iter = 1
     ρk = copy(ρ0)
     ρktemp = similar(ρk)
-    ρkm = similar(ρ0) #Array(Complex128,method.dim,method.dim)
+    ρkm = similar(ρ0) #Array(ComplexF64,method.dim,method.dim)
     status = :Optimal
     while true
         copy!(ρkm,ρk)

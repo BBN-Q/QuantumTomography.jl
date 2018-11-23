@@ -11,7 +11,7 @@ function build_choi_process_predictor(prep::Vector, obs::Vector)
     return reduce(vcat, map(m->vec(m)', vec(exps)) )
 end
 
-function isstate{T}(m::Matrix{T})
+function isstate(m::Matrix)
     ishermitian(m) && isapprox(trace(m),1.0)
 end
 
@@ -22,12 +22,12 @@ Free (unconstrained) least-squares process tomography algorithm. It is
 constructed from a vector of states that are used to probe a process, and
 a vector of observables that are used to measure the probe states.
 """
-type FreeLSProcessTomo
+struct FreeLSProcessTomo
     statecount::Int
     obscount::Int
     inputdim::Int
     outputdim::Int
-    pred::Matrix{Complex128}
+    pred::Matrix{ComplexF64}
     function FreeLSProcessTomo(states::Vector,obs::Vector)
         @assert all([ishermitian(o) for o in obs]) "Observables must be Hermitian"
         @assert all([isstate(o) for o in states])  "States must be valid density matrices"
@@ -69,9 +69,9 @@ function fit(method::FreeLSProcessTomo,
     end
     d = round(Int, size(method.pred,2) |> sqrt)
     # weighted least squares
-    reg = (Diagonal(1./sqrt(vars))*method.pred)\(Diagonal(1./sqrt(vars))*means)
+    reg = (Diagonal(1 ./ sqrt(vars))*method.pred)\(Diagonal(1 ./ sqrt(vars))*means)
     return (reshape(reg,d,d),
-            norm((method.pred*reg-means)./sqrt(vars),2)^2,
+            norm((method.pred*reg-means) ./ sqrt(vars),2)^2,
             :Optimal)
 end
 
@@ -104,12 +104,12 @@ a process, and a vector of observables that are used to measure the
 probe states.
 
 """
-type LSProcessTomo
+struct LSProcessTomo
     statecount::Int
     obscount::Int
     inputdim::Int
     outputdim::Int
-    pred::Matrix{Complex128}
+    pred::Matrix{ComplexF64}
     function LSProcessTomo(states::Vector,obs::Vector)
         @assert all([ishermitian(o) for o in obs]) "Observables must be Hermitian"
         @assert all([isstate(o) for o in states]) "States must be valid density matrices"
@@ -128,7 +128,7 @@ end
 begin
     global fit
     tomo_dim = 0
-    ptrb = spzeros(0,0)
+    ptrb = SparseArrays.spzeros(0,0)
 
     function trb_sop(da,db)
         sop = zeros(da^2,(da*db)^2)
@@ -139,7 +139,7 @@ begin
                 end
             end
         end
-        return sparse(sop)
+        return SparseArrays.sparse(sop)
     end
 
     function fit(method::LSProcessTomo,
@@ -160,7 +160,7 @@ begin
         # Convex.jl does not support complex numbers yet
         rpred = real(method.pred)
         ipred = -imag(method.pred)
-        ivars = 1./sqrt(vars)
+        ivars = 1 ./ sqrt(vars)
 
         if d != tomo_dim
             ptrb = trb_sop(d,d)
@@ -173,7 +173,7 @@ begin
         problem = minimize( vecnorm( (means - (rpred*vec(ρr) + ipred*vec(ρi))) .* ivars, 2 )^2 )
 
         # CP constraint
-        problem.constraints += isposdef([ρr ρi; -ρi ρr])
+        problem.constraints += Convex.isposdef([ρr ρi; -ρi ρr])
         # TP constraint
         problem.constraints += reshape(ptrb*vec(ρr),d,d) == eye(d)
         problem.constraints += reshape(ptrb*vec(ρi),d,d) == zeros(d,d)

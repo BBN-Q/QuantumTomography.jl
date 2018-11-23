@@ -18,6 +18,8 @@ import Distributions.fit
 
 using Convex, Distributions, SCS, QuantumInfo
 
+import SparseArrays
+
 include("state-tomo.jl")
 
 include("process-tomo.jl")
