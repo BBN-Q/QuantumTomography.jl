@@ -1,4 +1,4 @@
-using Base.Test,
+using Test,
       Cliffords,
       Distributions,
       QuantumInfo,
@@ -6,9 +6,11 @@ using Base.Test,
       RandomQuantum,
       SchattenNorms
 
+import Random
+
 function qst_test_setup()
-    obs = [ (complex(Pauli(i))+eye(2))/2 for i in 1:3 ]
-    append!(obs, [ (-complex(Pauli(i))+eye(2))/2 for i in 1:3 ])
+    obs = [ (complex(Pauli(i))+QuantumInfo.eye(2))/2 for i in 1:3 ]
+    append!(obs, [ (-complex(Pauli(i))+QuantumInfo.eye(2))/2 for i in 1:3 ])
 
     ρ = .98*projector(rand(FubiniStudyPureState(2)))+.02*rand(HilbertSchmidtMixedState(2))
 
@@ -20,7 +22,7 @@ function test_qst_freels(ρ, obs; n=10_000, asymptotic=false)
 
     asymptotic_means = real(predict(tomo,ρ))
 
-    samples = asymptotic ? asymptotic_means : Float64[ rand(Binomial(n,μ))/n for μ in asymptotic_means ]
+    samples = asymptotic ? asymptotic_means : Float64[ rand(Distributions.Binomial(n,μ))/n for μ in asymptotic_means ]
 
     ρest, obj, status = fit(tomo, samples)
 
@@ -32,7 +34,7 @@ function test_qst_freels_gls(ρ, obs; n=10_000, asymptotic=false)
 
     asymptotic_means = real(predict(tomo,ρ))
 
-    samples = asymptotic ? asymptotic_means : Float64[ rand(Binomial(n,μ))/n for μ in asymptotic_means ]
+    samples = asymptotic ? asymptotic_means : Float64[ rand(Distributions.Binomial(n,μ))/n for μ in asymptotic_means ]
     sample_mean = samples
     sample_var  = n*(samples - samples.^2)/(n-1)
 
@@ -46,7 +48,7 @@ function test_qst_ls(ρ, obs; n=10_000, asymptotic=false)
 
     asymptotic_means = real(predict(tomo,ρ))
 
-    samples = asymptotic ? asymptotic_means : Float64[ rand(Binomial(n,μ))/n for μ in asymptotic_means ]
+    samples = asymptotic ? asymptotic_means : Float64[ rand(Distributions.Binomial(n,μ))/n for μ in asymptotic_means ]
     sample_mean = samples
     sample_var  = n*(samples - samples.^2)/(n-1)
 
@@ -60,8 +62,8 @@ function test_qst_ml(ρ, obs; n=10_000, β=0.0, asymptotic=false, alt=false, max
 
     asymptotic_means = real(predict(tomo,ρ))
 
-    samples = asymptotic ? asymptotic_means[1:3] : Float64[rand(Binomial(n,μ))/n for μ in asymptotic_means[1:3]]
-    append!(samples,1-samples)
+    samples = asymptotic ? asymptotic_means[1:3] : Float64[rand(Distributions.Binomial(n,μ))/n for μ in asymptotic_means[1:3]]
+    append!(samples, 1 .- samples)
 
     ρest, obj, status = fit(tomo, samples, maxiter=maxiter, δ=1/ϵ, λ=β)
 
@@ -73,7 +75,7 @@ function test_qst_hml(ρ, obs; n=10_000, β=0.0, asymptotic=false, alt=false, ma
 
     asymptotic_means = real(predict(tomo,ρ))
 
-    samples = asymptotic ? asymptotic_means[1:3] : Float64[rand(Binomial(n,μ))/n for μ in asymptotic_means[1:3]]
+    samples = asymptotic ? asymptotic_means[1:3] : Float64[rand(Distributions.Binomial(n,μ))/n for μ in asymptotic_means[1:3]]
     append!(samples,1-samples)
 
     ρest, obj, status = fitB(tomo, samples)
@@ -106,8 +108,8 @@ function test_qpt_free_lsq(n=1000; E=zeros(Complex128,0,0), asymptotic=false)
 
     asymptotic_means = predict(tomo, E)
 
-    means = asymptotic ? asymptotic_means : map(p->rand(Binomial(n,p))/n, asymptotic_means)
-    vars = means .* (1-means) / n
+    means = asymptotic ? asymptotic_means : map(p->rand(Distributions.Binomial(n,p))/n, asymptotic_means)
+    vars = means .* (1 .- means) / n
 
     Eest, obj, status = asymptotic ? fit(tomo, asymptotic_means) : fit(tomo, means, vars)
 
@@ -152,8 +154,8 @@ function test_qpt_lsq(n=1000; E=zeros(Complex128,0,0), asymptotic=false)
 
     asymptotic_means = predict(tomo, E)
 
-    means = asymptotic ? asymptotic_means : map(p->rand(Binomial(n,p))/n, asymptotic_means)
-    vars = means .* (1-means) / n
+    means = asymptotic ? asymptotic_means : map(p->rand(Distributions.Binomial(n,p))/n, asymptotic_means)
+    vars = means .* (1 .- means) / n
 
     Eest, obj, status = asymptotic ? fit(tomo, asymptotic_means) : fit(tomo, means, vars)
 
@@ -176,7 +178,7 @@ end
 
 function test_trb(da,db)
     r = rand_mixed_state(da*db)
-    norm(trace(r,[da,db],2)-mat(trb_sop(da,db)*vec(r)),1)
+    LinearAlgebra.norm(LinearAlgebra.tr(r,[da,db],2)-mat(trb_sop(da,db)*vec(r)),1)
 end
 
 ρ, obs = qst_test_setup()
@@ -184,11 +186,13 @@ end
 kmax = 100
 result = zeros(kmax,6)
 
-srand(314159)
+Random.seed!(314159)
+
+@testset "Set 1" begin
 
 for k = 1:kmax
 
-    ρ = .98*projector(rand(FubiniStudyPureState(2)))+.02*rand(HilbertSchmidtMixedState(2))
+    ρ = 0.98 * projector(rand(FubiniStudyPureState(2))) + 0.02 * rand(HilbertSchmidtMixedState(2))
 
     status, enorm, obj, ρest = test_qst_freels(ρ, obs, asymptotic=true)
     result[k,1] = enorm
@@ -282,6 +286,10 @@ for k = 1:kmax
     #@test enorm < 5e-2
 end
 
+end
+
+@testset "Set 2" begin
+
 for k = 1:kmax
 
     # E = liou(rand(ClosedHaarEnsemble(2)))
@@ -307,5 +315,6 @@ for k = 1:kmax
 end
 #@printf "\n"
 
+end
 
 #println(result)

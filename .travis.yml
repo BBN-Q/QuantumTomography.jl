@@ -1,12 +1,11 @@
 language: julia
 julia:
-  - 0.6
   - 0.7
+  - 1.0
   - nightly
 matrix:
   allowed_failures:
     - julia: nightly
-    - julia: 0.7
 notifications:
   email: false
 # uncomment the following lines to override the default test script

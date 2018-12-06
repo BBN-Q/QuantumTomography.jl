@@ -7,12 +7,12 @@ function build_liou_process_predictor(prep::Vector, obs::Vector)
 end
 
 function build_choi_process_predictor(prep::Vector, obs::Vector)
-    exps = [ choi_liou_involution(vec(o)*vec(p)') for o in obs, p in prep ]
+    exps = [ QuantumInfo.choi_liou_involution(vec(o)*vec(p)') for o in obs, p in prep ]
     return reduce(vcat, map(m->vec(m)', vec(exps)) )
 end
 
 function isstate(m::Matrix)
-    ishermitian(m) && isapprox(trace(m),1.0)
+    LinearAlgebra.ishermitian(m) && isapprox(LinearAlgebra.tr(m),1.0)
 end
 
 """
@@ -29,7 +29,7 @@ struct FreeLSProcessTomo
     outputdim::Int
     pred::Matrix{ComplexF64}
     function FreeLSProcessTomo(states::Vector,obs::Vector)
-        @assert all([ishermitian(o) for o in obs]) "Observables must be Hermitian"
+        @assert all([LinearAlgebra.ishermitian(o) for o in obs]) "Observables must be Hermitian"
         @assert all([isstate(o) for o in states])  "States must be valid density matrices"
 
         pred = build_liou_process_predictor(states, obs)
@@ -48,10 +48,10 @@ function fit(method::FreeLSProcessTomo,
     if length(means) != method.outputdim
         error("The number of sample means does not match the required number of experiments")
     end
-    d = round(Int, size(method.pred,2) |> sqrt)
-    reg = method.pred\means
+    d = round(Int, size(method.pred, 2) |> sqrt)
+    reg = method.pred \ means
     return (reshape(reg,d,d),
-            norm(method.pred*reg-means,2)^2,
+            LinearAlgebra.norm(method.pred*reg-means,2)^2,
             :Optimal)
 end
 
@@ -69,9 +69,9 @@ function fit(method::FreeLSProcessTomo,
     end
     d = round(Int, size(method.pred,2) |> sqrt)
     # weighted least squares
-    reg = (Diagonal(1 ./ sqrt(vars))*method.pred)\(Diagonal(1 ./ sqrt(vars))*means)
+    reg = (LinearAlgebra.Diagonal(1 ./ sqrt.(vars)) * method.pred) \ (LinearAlgebra.Diagonal(1 ./ sqrt.(vars)) * means)
     return (reshape(reg,d,d),
-            norm((method.pred*reg-means) ./ sqrt(vars),2)^2,
+            LinearAlgebra.norm((method.pred*reg-means) ./ sqrt.(vars),2)^2,
             :Optimal)
 end
 
@@ -111,7 +111,7 @@ struct LSProcessTomo
     outputdim::Int
     pred::Matrix{ComplexF64}
     function LSProcessTomo(states::Vector,obs::Vector)
-        @assert all([ishermitian(o) for o in obs]) "Observables must be Hermitian"
+        @assert all([LinearAlgebra.ishermitian(o) for o in obs]) "Observables must be Hermitian"
         @assert all([isstate(o) for o in states]) "States must be valid density matrices"
 
         pred = build_choi_process_predictor(states, obs)
@@ -122,7 +122,7 @@ struct LSProcessTomo
 end
 
 function predict(method::LSProcessTomo, process::Matrix)
-    reshape(real(method.pred*vec(choi_liou_involution(process))), (method.statecount,method.obscount))
+    reshape(real(method.pred*vec(QuantumInfo.choi_liou_involution(process))), (method.statecount,method.obscount))
 end
 
 begin
@@ -135,7 +135,7 @@ begin
         for i=0:da-1
             for j=0:da-1
                 for k=0:db-1
-                    sop += vec(ketbra(i,j,da))*vec(kron(ketbra(i,j,da),ketbra(k,k,db)))'
+                    sop += vec(QuantumInfo.ketbra(i,j,da))*vec(kron(QuantumInfo.ketbra(i,j,da),QuantumInfo.ketbra(k,k,db)))'
                 end
             end
         end
@@ -146,7 +146,7 @@ begin
                  means::Vector{Float64},
                  vars = ones(length(means));
                  #solver = MosekSolver(LOG=0))
-                 solver = SCSSolver(verbose=0, max_iters=10_000, eps = 1e-8))
+                 solver = SCS.SCSSolver(verbose=0, max_iters=10_000, eps = 1e-8))
 
         if length(means) != length(vars) || size(method.pred,1) != length(means)
             error("Size of observations and predictons do not match.")
@@ -160,27 +160,29 @@ begin
         # Convex.jl does not support complex numbers yet
         rpred = real(method.pred)
         ipred = -imag(method.pred)
-        ivars = 1 ./ sqrt(vars)
+        ivars = 1 ./ sqrt.(vars)
 
         if d != tomo_dim
             ptrb = trb_sop(d,d)
         end
 
-        ρr = Variable(d2,d2)
-        ρi = Variable(d2,d2)
+        ρr = Convex.Variable(d2,d2)
+        ρi = Convex.Variable(d2,d2)
 
         # least squares problem
-        problem = minimize( vecnorm( (means - (rpred*vec(ρr) + ipred*vec(ρi))) .* ivars, 2 )^2 )
+#       NOTE: Notation "^2" is not working here.
+#        problem = Convex.minimize( Convex.norm( (means - (rpred*vec(ρr) + ipred*vec(ρi))) .* ivars, 2 )^2 )
+        problem = Convex.minimize( Convex.square(Convex.norm( (means - (rpred*vec(ρr) + ipred*vec(ρi))) .* ivars, 2 ) ))
 
         # CP constraint
         problem.constraints += Convex.isposdef([ρr ρi; -ρi ρr])
         # TP constraint
-        problem.constraints += reshape(ptrb*vec(ρr),d,d) == eye(d)
+        problem.constraints += reshape(ptrb*vec(ρr),d,d) == QuantumInfo.eye(d)
         problem.constraints += reshape(ptrb*vec(ρi),d,d) == zeros(d,d)
 
-        solve!(problem, solver)
+        Convex.solve!(problem, solver)
 
-        return choi_liou_involution((ρr.value + 1im*ρi.value)), problem.optval, problem.status
+        return QuantumInfo.choi_liou_involution((ρr.value + 1im*ρi.value)), problem.optval, problem.status
     end
 end
 
