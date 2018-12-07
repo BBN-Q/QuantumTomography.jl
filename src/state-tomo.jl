@@ -70,6 +70,7 @@ function fit(method::FreeLSStateTomo,
     if any(vars .< 0)
         error("Variances must be positive for generalized least squares.")
     end
+
     reg = (LinearAlgebra.Diagonal(1 ./ sqrt(vars)) * method.pred) \ (LinearAlgebra.Diagonal(1 ./ sqrt(vars)) * means)
     return reshape(reg,d,d),
            sqrt(dot(method.pred*reg-means,LinearAlgebra.Diagonal(vars)\(method.pred*reg-means)))/length(means),
