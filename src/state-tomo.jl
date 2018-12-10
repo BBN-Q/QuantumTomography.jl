@@ -302,7 +302,7 @@ function fit(method::MLStateTomo,
     ρkm = similar(ρ0) #Array(ComplexF64,method.dim,method.dim)
     status = :Optimal
     while true
-        copy!(ρkm,ρk)
+        copyto!(ρkm,ρk)
         if iter >= maxiter
             status = :MaxIter
             break
