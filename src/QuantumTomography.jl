@@ -12,11 +12,18 @@
 #     See the License for the specific language governing permissions and
 #     limitations under the License.
 
+__precompile__(false)
 module QuantumTomography
 
 import Distributions.fit
 
-using Convex, Distributions, SCS, QuantumInfo
+import Convex, Distributions, SCS, QuantumInfo
+import SCS
+import SparseArrays
+import LinearAlgebra
+
+using LinearAlgebra: Diagonal, norm, ishermitian, isdiag, tr
+using Convex: Variable, minimize, maximize, square, norm, isposdef, solve!, tr
 
 include("state-tomo.jl")
 

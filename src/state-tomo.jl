@@ -6,7 +6,7 @@ export fit,
        LSStateTomo,
        MLStateTomo
 
-function build_state_predictor{T}(obs::Vector{Matrix{T}})
+function build_state_predictor(obs::Vector{Matrix{T}}) where T
     return reduce(vcat,[vec(o)' for o in obs])
 end
 
@@ -17,12 +17,12 @@ Free (unconstrained) least-squares state tomography algorithm. It is
 constructed from a vector of observables corresponding to
 measurements that are performed on the state being reconstructed.
 """
-type FreeLSStateTomo
+struct FreeLSStateTomo
     inputdim::Int
     outputdim::Int
-    pred::Matrix{Complex128}
+    pred::Matrix{ComplexF64}
     function FreeLSStateTomo(obs::Vector)
-        @assert all([ishermitian(o) for o in obs]) "Observables must be Hermitian"
+        @assert all([LinearAlgebra.ishermitian(o) for o in obs]) "Observables must be Hermitian"
         pred = build_state_predictor(obs)
         outputdim = size(pred,1)
         inputdim = size(pred,2)
@@ -57,7 +57,7 @@ function fit(method::FreeLSStateTomo,
     end
     d = round(Int, method.inputdim |> sqrt)
     reg = method.pred\means
-    return reshape(reg,d,d), norm(method.pred*reg-means,2)/length(means), :Optimal
+    return reshape(reg,d,d), LinearAlgebra.norm(method.pred*reg-means,2)/length(means), :Optimal
 end
 
 function fit(method::FreeLSStateTomo,
@@ -70,9 +70,10 @@ function fit(method::FreeLSStateTomo,
     if any(vars .< 0)
         error("Variances must be positive for generalized least squares.")
     end
-    reg = (Diagonal(1./sqrt(vars))*method.pred)\(Diagonal(1./sqrt(vars))*means)
+
+    reg = (LinearAlgebra.Diagonal(1 ./ sqrt(vars)) * method.pred) \ (LinearAlgebra.Diagonal(1 ./ sqrt(vars)) * means)
     return reshape(reg,d,d),
-           sqrt(dot(method.pred*reg-means,Diagonal(vars)\(method.pred*reg-means)))/length(means),
+           sqrt(dot(method.pred*reg-means,LinearAlgebra.Diagonal(vars)\(method.pred*reg-means)))/length(means),
            :Optimal
 end
 
@@ -91,12 +92,12 @@ be estimated from observations (including variances) by using the
 `fit` function.
 
 """
-type LSStateTomo
+struct LSStateTomo
     inputdim::Int
     outputdim::Int
     realpred::Matrix{Float64}
     function LSStateTomo(obs::Vector)
-        @assert all([ishermitian(o) for o in obs]) "Observables must be Hermitian"
+        @assert all([LinearAlgebra.ishermitian(o) for o in obs]) "Observables must be Hermitian"
         pred = build_state_predictor(obs)
         outputdim = size(pred,1)
         inputdim = size(pred,2)
@@ -113,7 +114,7 @@ function fit(method::LSStateTomo,
              means::Vector{Float64},
              vars::Vector{Float64};
              #solver = MosekSolver(LOG=0))
-             solver = SCSSolver(verbose=0, max_iters=10_000, eps = 1e-8))
+             solver = SCS.SCSSolver(verbose=0, max_iters=10_000, eps = 1e-8))
 
     if length(means) != length(vars) || method.outputdim != length(means)
         error("Size of observations and/or predictons do not match.")
@@ -124,19 +125,19 @@ function fit(method::LSStateTomo,
     # We assume that the predictions are always real-valued
     # and we need to do the complex->real translation manually since
     # Convex.jl does not support complex numbers yet
-    ivars = 1./sqrt.(vars)
+    ivars = 1 ./ sqrt.(vars)
 
-    ρr = Variable(d,d)
-    ρi = Variable(d,d)
+    ρr = Convex.Variable(d,d)
+    ρi = Convex.Variable(d,d)
 
-    constraints = trace(ρr) == 1
-    constraints += trace(ρi) == 0
-    constraints += isposdef([ρr ρi; -ρi ρr])
+    constraints = Convex.tr(ρr) == 1
+    constraints += Convex.tr(ρi) == 0
+    constraints += Convex.isposdef([ρr ρi; -ρi ρr])
 
     # TODO: use quad_form instead of vecnorm? Have 1/vars are diagonal quadratic form
-    problem = minimize( vecnorm( (means - method.realpred*[vec(ρr); vec(ρi)]) .* ivars, 2), constraints )
+    problem = Convex.minimize( LinearAlgebra.norm( (means - method.realpred*[vec(ρr); vec(ρi)]) .* ivars, 2), constraints )
 
-    solve!(problem, solver)
+    Convex.solve!(problem, solver)
 
     return (ρr.value - 1im*ρi.value), problem.optval^2, problem.status
 end
@@ -152,8 +153,8 @@ either a log determinant or log minimum eigenvalue penalty is applied.
 
 **AT THE MOMENT HEDGING IS ONLY APPLIED IN fitA, AND IS NOT CURRENTLY WORKING**
 """
-type MLStateTomo
-    effects::Vector{Matrix{Complex128}}
+struct MLStateTomo
+    effects::Vector{Matrix{ComplexF64}}
     dim::Int64
     β::Float64
     # TODO: perhaps for ML it is better to have the observables pecified as
@@ -161,12 +162,12 @@ type MLStateTomo
     #       that should add up to the identity
     function MLStateTomo(v::Vector,β=0.0)
         for e in v
-            if !ishermitian(e) || !ispossemidef(e) || real(trace(e))>1
+            if !LinearAlgebra.ishermitian(e) || ! QuantumInfo.ispossemidef(e) || real(LinearAlgebra.tr(e))>1
                 error("MLStateTomo state tomography is parameterized by POVM effects only.")
             end
         end
         sv = sum(v)
-        if !isdiag(sv) || !isapprox(maximum(abs.(diag(sv)))-minimum(abs.(diag(sv))),0.0)
+        if ! LinearAlgebra.isdiag(sv) || !isapprox(maximum(abs.(LinearAlgebra.diag(sv)))-minimum(abs.(LinearAlgebra.diag(sv))),0.0)
             error("POVM effects must add up to the identity.")
         end
         if !all([size(e,1)==size(e,2) for e in v]) || !all([size(v[1],1)==size(e,1) for e in v])
@@ -180,7 +181,7 @@ type MLStateTomo
 end
 
 function predict(method::MLStateTomo,ρ)
-    Float64[ real(trace(ρ*e)) for e in method.effects]
+    Float64[ real(LinearAlgebra.tr(ρ*e)) for e in method.effects]
 end
 
 """
@@ -201,29 +202,29 @@ function fitA(method::MLStateTomo,
 
     d = method.dim
 
-    # ρr = Variable(d,d)
+    # ρr = Convex.Variable(d,d)
     ρr = Semidefinite(d)
-    ρi = Variable(d,d)
+    ρi = Convex.Variable(d,d)
 
     ϕ(m) = [real(m) -imag(m); imag(m) real(m)];
     ϕ(r,i) = [r i; -i r]
 
-    obj = freq[1] * log(trace([ρr ρi; -ρi ρr]*ϕ(method.effects[1])))
+    obj = freq[1] * log(Convex.tr([ρr ρi; -ρi ρr]*ϕ(method.effects[1])))
     for i=2:length(method.effects)
-        obj += freq[i] * log(trace([ρr ρi; -ρi ρr]*ϕ(method.effects[i])))
+        obj += freq[i] * log(Convex.tr([ρr ρi; -ρi ρr]*ϕ(method.effects[i])))
     end
     # add hedging regularization
     if method.β != 0.0
         obj += method.β*log(lambdamin([ρr ρi; -ρi ρr]))
     end
 
-    constraints = trace(ρr) == 1
-    constraints += trace(ρi) == 0
-    constraints += isposdef([ρr ρi; -ρi ρr])
+    constraints = Convex.tr(ρr) == 1
+    constraints += Convex.tr(ρi) == 0
+    constraints += Convex.isposdef([ρr ρi; -ρi ρr])
 
-    problem = maximize(obj, constraints)
+    problem = Convex.maximize(obj, constraints)
 
-    solve!(problem, solver)
+    Convex.solve!(problem, solver)
 
     return ρr.value-im*ρi.value, problem.optval, problem.status
 end
@@ -246,9 +247,9 @@ function fitB(method::MLStateTomo,
 
     d = method.dim
 
-    ρr = Semidefinite(d) #Variable(d,d)
-    ρi = Variable(d,d)
-    p  = Variable(length(method.effects),Positive())
+    ρr = Convex.Semidefinite(d)
+    ρi = Convex.Variable(d,d)
+    p  = Convex.Variable(length(method.effects),Positive())
 
     ϕ(m) = [real(m) -imag(m); imag(m) real(m)];
     ϕ(r,i) = [r i; -i r]
@@ -259,22 +260,22 @@ function fitB(method::MLStateTomo,
     #obj += method.β!=0.0 ? method.β*logdet([ρr ρi; -ρi ρr]) : 0.0
     #obj += method.β!=0.0 ? method.β*log(lambdamin([ρr ρi; -ρi ρr])) : 0.0
 
-    constraints = trace(ρr) == 1
-    constraints += trace(ρi) == 0
+    constraints = Convex.tr(ρr) == 1
+    constraints += Convex.tr(ρi) == 0
     for i=1:length(method.effects)
-        constraints += p[i] == trace([ρr ρi; -ρi ρr]*ϕ(method.effects[i]))/2
+        constraints += p[i] == Convex.tr([ρr ρi; -ρi ρr]*ϕ(method.effects[i]))/2
     end
-    constraints += isposdef([ρr ρi; -ρi ρr])
+    constraints += Convex.isposdef([ρr ρi; -ρi ρr])
 
-    problem = maximize(obj, constraints)
+    problem = Convex.maximize(obj, constraints)
 
-    solve!(problem, solver)
+    Convex.solve!(problem, solver)
 
     return ρr.value-im*ρi.value, problem.optval, problem.status
 end
 
 function R(ρ,E,obs)
-    pr = Float64[real(trace(ρ*Ei)) for Ei in E]
+    pr = Float64[real(LinearAlgebra.tr(ρ*Ei)) for Ei in E]
     R = obs[1]/pr[1]*E[1]
     for i in 2:length(E)
         R += obs[i]/pr[i]*E[i]
@@ -283,7 +284,7 @@ function R(ρ,E,obs)
 end
 
 function LL(ρ,E,obs)
-    pr = Float64[real(trace(ρ*Ei)) for Ei in E]
+    pr = Float64[real(LinearAlgebra.tr(ρ*Ei)) for Ei in E]
     sum(obs.*log.(pr))
 end
 
@@ -293,27 +294,30 @@ function fit(method::MLStateTomo,
              λ=0.0,  # entropy penalty
              tol=1e-9,
              maxiter=100_000,
-             ρ0 = eye(Complex128,method.dim))
+             ρ0 = QuantumInfo.eye(ComplexF64,method.dim))
     ϵ=1/δ
     iter = 1
     ρk = copy(ρ0)
     ρktemp = similar(ρk)
-    ρkm = similar(ρ0) #Array(Complex128,method.dim,method.dim)
+    ρkm = similar(ρ0) #Array(ComplexF64,method.dim,method.dim)
     status = :Optimal
     while true
-        copy!(ρkm,ρk)
+        copyto!(ρkm,ρk)
         if iter >= maxiter
             status = :MaxIter
             break
         end
         # diluted iterative scheme for ML (from PRA 75 042108 2007)
         Tk = λ > 0.0 ?
-             (1+ϵ*(R(ρk,method.effects,freq)-eye(method.dim)-λ*(logm(ρk)-trace(ρk*logm(ρk)))))/(1+ϵ) :
-             (1+ϵ*R(ρk,method.effects,freq))/(1+ϵ)
-        A_mul_B!(ρktemp,ρk,(1+ϵ*Tk)/(1+ϵ)) # ρk = ρk * (1+ϵRk)/(1+ϵ)
-        A_mul_B!(ρk,(1+ϵ*Tk)/(1+ϵ),ρktemp) # ρk = (1+ϵRk) * ρk/(1+ϵ)
-        trnormalize!(ρk)
-        if vecnorm(ρk-ρkm)/method.dim^2 < tol
+            (1 .+ ϵ * (R(ρk,method.effects,freq) .- QuantumInfo.eye(method.dim) .-
+                       λ * (log(ρk) .- LinearAlgebra.tr(ρk*log(ρk)))))/(1+ϵ) :
+                       (1 .+ ϵ * R(ρk,method.effects,freq)) / (1 + ϵ)
+        ρktemp .= ρk * (1 .+ ϵ * Tk)/( 1 + ϵ)
+        ρk .= (1 .+ ϵ * Tk) / (1 + ϵ) * ρktemp
+        # LinearAlgebra.A_mul_B!(ρktemp, ρk, (1 .+ ϵ * Tk)/( 1 + ϵ)) # ρk = ρk * (1+ϵRk)/(1+ϵ)
+        # LinearAlgebra.A_mul_B!(ρk, (1+ϵ*Tk) / (1+ϵ), ρktemp) # ρk = (1+ϵRk) * ρk/(1+ϵ)
+        QuantumInfo.trnormalize!(ρk)
+        if LinearAlgebra.norm(ρk-ρkm)/method.dim^2 < tol
             status = :Optimal
             break
         end
