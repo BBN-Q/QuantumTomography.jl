@@ -13,7 +13,7 @@ matrix:
 notifications:
   email: false
 # uncomment the following lines to override the default test script
-#script:
+script:
  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
  - julia --check-bounds=yes -e 'using Pkg; Pkg.add(PackageSpec(url=pwd())); Pkg.develop("RandomQuantum"); Pkg.develop("QuantumInfo"); Pkg.build("QuantumTomography"); Pkg.test("QuantumTomography"; coverage=true)'
 
