@@ -38,7 +38,9 @@ In order to perform quantum state tomography, we need an
 informationally complete set of measurement effects. In the case of a single
 qubit, that can be given by the eigenstates of the 3 Pauli operators.
 ```julia
-julia> using Cliffords, QuantumTomography, QuantumInfo
+julia> using Cliffords, QuantumTomography
+
+julia> import QuantumInfo.eye
 
 julia> obs = Matrix[ (complex(Pauli(i))+eye(2))/2 for i in 1:3 ];
 
@@ -49,8 +51,6 @@ julia> tomo = LSStateTomo(obs);
 We choose some random pure state to generate the ficticious experiment
 ```julia
 julia> using RandomQuantum, QuantumInfo
-
-julia> import QuantumInfo.eye
 
 julia> ψ  = rand(FubiniStudyPureState(2));
 
