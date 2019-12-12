@@ -1,4 +1,4 @@
-authors = ["Marcus P da Silva", "John Lapeyre", Matthew Ware"]
+authors = ["Marcus P da Silva", "John Lapeyre", "Matthew Ware"]
 name = "QuantumTomography"
 uuid = "1d9c40fe-1d26-11ea-03f8-f5801c7a1696"
 version = "0.1.0"
