@@ -1,6 +1,6 @@
-authors = ["Marcus P da Silva", "John Lapeyre", "Matthew Ware"]
 name = "QuantumTomography"
 uuid = "1d9c40fe-1d26-11ea-03f8-f5801c7a1696"
+authors = ["Marcus P da Silva", "John Lapeyre", "Matthew Ware"]
 version = "0.1.0"
 
 [deps]
@@ -8,6 +8,7 @@ Convex = "f65535da-76fb-5f13-bab9-19810c17039a"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 QuantumInfo = "bedefb8d-ef00-5401-aa81-ae9c3f6f84cc"
 SCS = "c946c3f1-0d1f-5ce8-9dea-7daa1f7e2d13"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [compat]
 julia = "1"
