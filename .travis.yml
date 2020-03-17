@@ -15,7 +15,7 @@ notifications:
 # uncomment the following lines to override the default test script
 script:
  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
- - julia --check-bounds=yes -e 'using Pkg; Pkg.develop("RandomQuantum"); Pkg.develop("QuantumInfo"); Pkg.develop("Cliffords");  Pkg.build("QuantumTomography"); Pkg.test("QuantumTomography"; coverage=true)'
+ - julia --check-bounds=yes -e 'using Pkg; Pkg.build("QuantumTomography"); Pkg.test("QuantumTomography"; coverage=true)'
 
 # necessary to run on new container-based infrastructure
 sudo: false
