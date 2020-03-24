@@ -16,6 +16,12 @@ matrices with unit trace, processes are constrained to be given by the
 Choi matrix of a completely positive, trace preserving map, and
 measurements are constrained to be given by POVM elements.
 
+## Installation
+Using the Julia package manager:
+```julia
+(v1.0) pkg> add QuantumTomography
+```
+
 ## API
 
 Each different tomography method is associated with a type. Objects of
