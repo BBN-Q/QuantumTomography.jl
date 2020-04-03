@@ -6,8 +6,8 @@ export fit,
        LSStateTomo,
        MLStateTomo
 
-function build_state_predictor(obs::Vector{Matrix{T}}) where T
-    return reduce(vcat,[vec(o)' for o in obs])
+function build_state_predictor(obs::Vector{Matrix{T} where T})
+   return reduce(vcat,[vec(o)' for o in obs])
 end
 
 """
@@ -71,7 +71,7 @@ function fit(method::FreeLSStateTomo,
         error("Variances must be positive for generalized least squares.")
     end
 
-    reg = (LinearAlgebra.Diagonal(1 ./ sqrt(vars)) * method.pred) \ (LinearAlgebra.Diagonal(1 ./ sqrt(vars)) * means)
+    reg = (LinearAlgebra.Diagonal(1 ./ sqrt.(vars)) * method.pred) \ (LinearAlgebra.Diagonal(1 ./ sqrt.(vars)) * means)
     return reshape(reg,d,d),
            sqrt(dot(method.pred*reg-means,LinearAlgebra.Diagonal(vars)\(method.pred*reg-means)))/length(means),
            :Optimal
@@ -137,7 +137,7 @@ function fit(method::LSStateTomo,
     # TODO: use quad_form instead of vecnorm? Have 1/vars are diagonal quadratic form
     problem = Convex.minimize( LinearAlgebra.norm( (means - method.realpred*[vec(ρr); vec(ρi)]) .* ivars, 2), constraints )
 
-    Convex.solve!(problem, solver)
+    Convex.solve!(problem, SCS.Optimizer)
 
     return (ρr.value - 1im*ρi.value), problem.optval^2, problem.status
 end
