@@ -73,7 +73,7 @@ function fit(method::FreeLSStateTomo,
 
     reg = (LinearAlgebra.Diagonal(1 ./ sqrt.(vars)) * method.pred) \ (LinearAlgebra.Diagonal(1 ./ sqrt.(vars)) * means)
     return reshape(reg,d,d),
-           sqrt(dot(method.pred*reg-means,LinearAlgebra.Diagonal(vars)\(method.pred*reg-means)))/length(means),
+           sqrt(LinearAlgebra.dot(method.pred*reg-means,LinearAlgebra.Diagonal(vars)\(method.pred*reg-means)))/length(means),
            :Optimal
 end
 
@@ -114,7 +114,7 @@ function fit(method::LSStateTomo,
              means::Vector{Float64},
              vars::Vector{Float64};
              #solver = MosekSolver(LOG=0))
-             solver = SCS.SCSSolver(verbose=0, max_iters=10_000, eps = 1e-8))
+             solver = SCS.SCSSolver(verbose=0, max_iters=10_000, eps = 1e-8)) # outdated, now using SCS.Optimizer
 
     if length(means) != length(vars) || method.outputdim != length(means)
         error("Size of observations and/or predictons do not match.")
