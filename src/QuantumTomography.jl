@@ -22,7 +22,7 @@ import SCS
 import SparseArrays
 import LinearAlgebra
 
-using LinearAlgebra: Diagonal, norm, ishermitian, isdiag, tr
+using LinearAlgebra: Diagonal, norm, ishermitian, isdiag, tr, dot
 using Convex: Variable, minimize, maximize, square, norm, isposdef, solve!, tr
 
 include("state-tomo.jl")

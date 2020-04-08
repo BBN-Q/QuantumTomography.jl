@@ -1,5 +1,6 @@
 name = "QuantumTomography"
 uuid = "1d9c40fe-1d26-11ea-03f8-f5801c7a1696"
+license = "ASL"
 authors = ["Marcus P da Silva", "John Lapeyre", "Matthew Ware"]
 version = "0.1.0"
 
@@ -13,6 +14,7 @@ SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [compat]
 julia = "1"
+Convex = "0.12.3"
 
 [extras]
 Cliffords = "276b0191-6968-5de0-98fd-2a81b0f3910d"
