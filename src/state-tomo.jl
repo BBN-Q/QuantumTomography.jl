@@ -6,7 +6,7 @@ export fit,
        LSStateTomo,
        MLStateTomo
 
-function build_state_predictor(obs::Vector{Matrix{T} where T})
+function build_state_predictor(obs::Vector{Matrix{T}} where T)
    return reduce(vcat,[vec(o)' for o in obs])
 end
 
@@ -114,7 +114,7 @@ function fit(method::LSStateTomo,
              means::Vector{Float64},
              vars::Vector{Float64};
              #solver = MosekSolver(LOG=0))
-             solver = SCS.SCSSolver(verbose=0, max_iters=10_000, eps = 1e-8)) # outdated, now using SCS.Optimizer
+             solver = SCS.SCSSolver(verbose=0, max_iters=10_000, eps = 1e-8))
 
     if length(means) != length(vars) || method.outputdim != length(means)
         error("Size of observations and/or predictons do not match.")
@@ -137,7 +137,7 @@ function fit(method::LSStateTomo,
     # TODO: use quad_form instead of vecnorm? Have 1/vars are diagonal quadratic form
     problem = Convex.minimize( LinearAlgebra.norm( (means - method.realpred*[vec(ρr); vec(ρi)]) .* ivars, 2), constraints )
 
-    Convex.solve!(problem, SCS.Optimizer)
+    Convex.solve!(problem, solver)
 
     return (ρr.value - 1im*ρi.value), problem.optval^2, problem.status
 end
