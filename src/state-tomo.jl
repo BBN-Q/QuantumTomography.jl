@@ -162,14 +162,19 @@ struct MLStateTomo
     #       that should add up to the identity
     function MLStateTomo(v::Vector,β=0.0)
         for e in v
-            if !LinearAlgebra.ishermitian(e) || ! QuantumInfo.ispossemidef(e) || real(LinearAlgebra.tr(e))>1
-                error("MLStateTomo state tomography is parameterized by POVM effects only.")
-            end
-        end
-        sv = sum(v)
-        if ! LinearAlgebra.isdiag(sv) || !isapprox(maximum(abs.(LinearAlgebra.diag(sv)))-minimum(abs.(LinearAlgebra.diag(sv))),0.0,atol=1e-12)
-            error("POVM effects must add up to the identity.")
-        end
+             if !LinearAlgebra.ishermitian(e) ||
+                ! QuantumInfo.ispossemidef(e,tol=1e-10) ||
+                !isapprox(real(LinearAlgebra.tr(e)), 1.0; atol=1e-12)
+                 error("MLStateTomo state tomography is parameterized by POVM effects only.")
+             end
+         end
+         sv = sum(v)
+         sv_proxy = proxy = map(x -> any(abs(x) > 1e-14), sv)
+         if ! LinearAlgebra.isdiag(sv_proxy) ||
+            !isapprox(maximum(abs.(LinearAlgebra.diag(sv)))-
+                         minimum(abs.(LinearAlgebra.diag(sv))),0.0,atol=1e-12)
+             error("POVM effects must add up to the identity.")
+         end
         if !all([size(e,1)==size(e,2) for e in v]) || !all([size(v[1],1)==size(e,1) for e in v])
                 error("All effects must be square matrices, and they must have have the same dimension.")
         end
