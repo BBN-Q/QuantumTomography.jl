@@ -169,7 +169,7 @@ struct MLStateTomo
              end
          end
          sv = sum(v)
-         sv_proxy = proxy = map(x -> any(abs(x) > 1e-14), sv)
+         sv_proxy = map(x -> any(abs(x) > 1e-14), sv)
          if ! LinearAlgebra.isdiag(sv_proxy) ||
             !isapprox(maximum(abs.(LinearAlgebra.diag(sv)))-
                          minimum(abs.(LinearAlgebra.diag(sv))),0.0,atol=1e-12)
