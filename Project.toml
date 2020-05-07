@@ -14,7 +14,10 @@ SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [compat]
 julia = "1"
-Convex = "^0.12.3"
+Convex = "^0.12.0"
+Distributions = "^0.21.0"
+QuantumInfo = "^0.1.0"
+SCS = "^0.6.0"
 
 [extras]
 Cliffords = "276b0191-6968-5de0-98fd-2a81b0f3910d"
