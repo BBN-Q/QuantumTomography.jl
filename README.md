@@ -18,7 +18,7 @@ measurements are constrained to be given by POVM elements.
 
 ## Installation
 Using the Julia package manager:
-```julia
+```julia-repel
 (v1.0) pkg> add QuantumTomography
 ```
 
@@ -43,7 +43,7 @@ tomography methods are
 In order to perform quantum state tomography, we need an
 informationally complete set of measurement effects. In the case of a single
 qubit, that can be given by the eigenstates of the 3 Pauli operators.
-```julia
+```julia-repel
 julia> using Cliffords, QuantumTomography
 
 julia> import QuantumInfo.eye
@@ -54,8 +54,8 @@ julia> append!(obs, Matrix[ (-complex(Pauli(i))+eye(2))/2 for i in 1:3 ]);
 
 julia> tomo = LSStateTomo(obs);
 ```
-We choose some random pure state to generate the ficticious experiment
-```julia
+We choose some random pure state to generate the fictitious experiment
+```julia-repel
 julia> using RandomQuantum, QuantumInfo
 
 julia> ψ  = rand(FubiniStudyPureState(2));
@@ -71,11 +71,11 @@ julia> ρ = projector(ψ)
  0.0637123-0.399834im   0.206618+0.0im     
 ```
 Predict the expectation values of the observations for some hypothesized ρ
-```julia
+```julia-repel
 ideal_means = predict(tomo, ρ) |> real
 ```
 With these in hand, we can finally reconstruct `ρ` from the observed expectation values and variances.
-```julia
+```julia-repel
 julia> fit(tomo, ideal_means, ones(6))
 (
 2x2 Array{Complex{Float64},2}:
@@ -89,7 +89,7 @@ julia> fit(tomo, ideal_means, ones(6))
 
 Using the data generated above, we can instead choose to reconstruct the state
 by maximizing the likelihood function for some set of binomial observations.
-```julia
+```julia-repel
 julia> using Distributions
 julia> ml_tomo = MLStateTomo(obs)
 julia> freqs = Float64[rand(Binomial(10_000, μ))/10_000 for μ in ideal_means[1:3]]
@@ -107,7 +107,7 @@ If the observations are incomplete (in the sense that they do not uniquely speci
 the quantum state), one can still perform reconstruction by maximizing a mixture
 of the likelihood and the entropy of the resulting state (see PRL 107 020404 2011).
 In this package, this would correspond to
-```julia
+```julia-repel
 julia> fit(ml_tomo, freqs, λ=1e-3)
 (
 2x2 Array{Complex{Float64},2}:
@@ -122,7 +122,7 @@ rank states.  This can be avoided by *hedging* (see Blume-Kohout, PRL
 105, 200504 2010), which essentially follows a modification of
 Laplace's rule to penalize low rank estimates. Hedging can be enabled
 by using the experimental fitting routine `fitA` with `MLStateTomo`:
-```julia
+```julia-repel
 julia> QuantumTomography.fitA(ml_tomo, freqs)
 (
 2x2 Array{Complex{Float64},2}:
