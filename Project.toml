@@ -14,7 +14,7 @@ SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [compat]
 Convex = "^0.12.0"
-Distributions = "0.20.0, 0.23.2"
+Distributions = "^0.20.0"
 QuantumInfo = "^0.1.0"
 SCS = "^0.6.0"
 julia = "1"
