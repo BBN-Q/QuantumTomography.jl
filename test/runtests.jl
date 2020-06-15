@@ -176,6 +176,68 @@ function test_qpt_lsq(n=1000; E=zeros(ComplexF64,0,0), asymptotic=false)
     return status, snorm(choi_err,1), obj, Eest
 end
 
+function test_2q_qpt_lsq(n=10000; E=zeros(ComplexF64,0,0), asymptotic=false)
+
+    # This example will hopefully give a general example of how two-qubit
+    # tomography could be constructed.
+
+    # Assemble the two-qubit predictions and observations out of single
+    # qubit operators.
+
+    prep = map(projector, [ [1,0],
+                            [0,1],
+                            1/sqrt(2)*[1,1],
+                            1/sqrt(2)*[1,-1],
+                            1/sqrt(2)*[1,-1im],
+                            1/sqrt(2)*[1,1im] ] )
+
+                            preps = Matrix{ComplexF64}[]
+    for p in prep
+        append!(preps, map(x -> kron(p,x), prep))
+    end
+
+    u = rand(ClosedHaarEnsemble(4))
+
+    low_dim_obs = [ [1,0],
+                    [0,1],
+                    1/sqrt(2)*[1,1],
+                    1/sqrt(2)*[1,-1im] ]
+    meas_obs = []
+    for o in low_dim_obs
+        append!(meas_obs, map(x -> kron(o,x), low_dim_obs))
+    end
+    obs = map(ψ->projector(u*ψ), meas_obs)
+
+    if size(E) == (0,0)
+        E = liou(rand(RandomQuantum.ClosedHaarEnsemble(4)))
+    end
+
+    tomo = LSProcessTomo(preps, obs)
+
+    asymptotic_means = predict(tomo, E)
+
+    means = asymptotic ? asymptotic_means : map(p->rand(Distributions.Binomial(n,p))/n, asymptotic_means)
+    vars = means .* (1 .- means) / n
+
+    Eest, obj, status = asymptotic ? fit(tomo, asymptotic_means) : fit(tomo, means, vars)
+
+    choi_err = liou2choi(Eest - E)
+
+    #println("Status                  : $(status)")
+    #println("Diamond norm lower bound: $(snorm(choi_err,1))")
+    #println("χ² error                : $(obj)")
+    #println("Eigvals ρ:")
+    #for ev in eigvals(E)
+    #    println(ev)
+    #end
+    #println("Eigvals ρest:")
+    #for ev in eigvals(Eest)
+    #    println(real(ev))
+    #end
+
+    return status, snorm(choi_err,1), obj, Eest
+end
+
 function test_trb(da,db)
     r = rand_mixed_state(da*db)
     LinearAlgebra.norm(LinearAlgebra.tr(r,[da,db],2)-mat(trb_sop(da,db)*vec(r)),1)
@@ -316,7 +378,15 @@ for k = 1:kmax
 
     #println(result[k,:])
 end
-#@printf "\n"
+
+@testset "Set 3" begin
+# This test of two-qubit process tomography is noisy and
+# time-consuming.  Run if you wish but it will double the
+# time needed to run CI.
+status, snorm, _, Eest = test_2q_qpt_lsq(10_000, asymptotic=false)
+@test status == :Optimal || ( status == :UnknownError && snorm < 5e-2 )
+@test snorm < 5e-2
+end
 
 end
 

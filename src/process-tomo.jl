@@ -8,7 +8,7 @@ end
 
 function build_choi_process_predictor(prep::Vector, obs::Vector)
     exps = [ QuantumInfo.choi_liou_involution(vec(o)*vec(p)') for o in obs, p in prep ]
-    return reduce(vcat, map(m->vec(m)', vec(exps)) )
+    return reduce(vcat, map(m->vec(m)', vec(exps)))
 end
 
 function isstate(m::Matrix)
@@ -112,7 +112,13 @@ struct LSProcessTomo
     pred::Matrix{ComplexF64}
     function LSProcessTomo(states::Vector,obs::Vector)
         @assert all([LinearAlgebra.ishermitian(o) for o in obs]) "Observables must be Hermitian"
-        @assert all([isstate(o) for o in states]) "States must be valid density matrices"
+        # @assert all([isstate(o) for o in states]) "States must be valid density matrices"
+        # Note here that data constructed in the typical way--creating the
+        # measurement operators with the calibration points--will
+        # fail the `is_state` test.  So for now we only test if the operators
+        # are Hermitian.  The actual numerical value of the data in the
+        # mearuement operators could be arbitrary (i.e. negitive etc...)
+        @assert all([LinearAlgebra.ishermitian(o) for o in states]) "States must be Hermitian"
 
         pred = build_choi_process_predictor(states, obs)
         outputdim = size(pred,1)
