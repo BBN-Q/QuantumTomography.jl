@@ -384,8 +384,8 @@ end
 # time-consuming.  Run if you wish but it will double the
 # time needed to run CI.
 status, snorm, _, Eest = test_2q_qpt_lsq(10_000, asymptotic=false)
-@test status == :Optimal || ( status == :UnknownError && snorm < 5e-2 )
-@test snorm < 5e-2
+@test status == :Optimal || ( status == :UnknownError && snorm < 1e-1 )
+@test snorm < 1e-1
 end
 
 end
