@@ -1,16 +1,38 @@
 export FreeLSProcessTomo,
        LSProcessTomo
 
+"""
+`build_liou_process_predictor(prep::Vector, obs::Vector)`
+
+Build a predictor matrix in a similar way as state tomography.  The key
+difference in this case is the matrix entries are products of the preparation
+operators and the observable probe states.  The inner product of the two is
+taken then vectorized, transposed and stacked vertially to create the prediction
+matrix.  This allows the problem to be stated the same way as in the state
+tomography case.
+"""
 function build_liou_process_predictor(prep::Vector, obs::Vector)
     exps = [ vec(p)*vec(o)' for o in obs, p in prep ]
     return reduce(vcat, map(m->vec(m)', vec(exps)) )
 end
 
+"""
+`build_choi_process_predictor(prep::Vector, obs::Vector)`
+
+Same functionality as `build_process_predictor` but returns a matrix in the
+Choi representation.
+"""
 function build_choi_process_predictor(prep::Vector, obs::Vector)
     exps = [ QuantumInfo.choi_liou_involution(vec(o)*vec(p)') for o in obs, p in prep ]
     return reduce(vcat, map(m->vec(m)', vec(exps)) )
 end
 
+"""
+`isstate(m::Matrix)`
+
+Test that a probe state is a proper density matrix.  Matrices should be
+Hermitian and trace 1.
+"""
 function isstate(m::Matrix)
     LinearAlgebra.ishermitian(m) && isapprox(LinearAlgebra.tr(m),1.0)
 end
