@@ -6,6 +6,16 @@ export fit,
        LSStateTomo,
        MLStateTomo
 
+"""
+`build_state_predictor(obs::Vector{Matrix{T}} where T)`
+
+A general function that builds a predictor matrix from a list of matrices that
+represent observables used in the tomographic reconstruction.  Matrices are
+vectorized (column-major), transposed, then stacked vertically to create the
+A matrix in $ A * \rho = p$ linear inversion problem.  Here, p is a vector of
+experiment outcomes and $\rho$ is the density matrix to be reconstructed.
+See https://en.wikipedia.org/wiki/Quantum_tomography
+"""
 function build_state_predictor(obs::Vector{Matrix{T}} where T)
    return reduce(vcat,[vec(o)' for o in obs])
 end
@@ -42,8 +52,9 @@ end
 """
 `fit(method, ...)`
 
-Reconstruct a state from observations (i.e., perform state tomography). Exactly which fitting
-routine is used depends on the type of the `method`. The possible types are
+Reconstruct a state from observations (i.e., perform state tomography). Exactly
+which fitting routine is used depends on the type of the `method`. The possible
+types are
 
    + FreeLSStateTomo : unconstrained least-squares state tomography
    + LSStateTomo : least-squares state tomography constrained to physical states
@@ -56,6 +67,8 @@ function fit(method::FreeLSStateTomo,
         error("The number of expected means does not match the required number of experiments")
     end
     d = round(Int, method.inputdim |> sqrt)
+    # Do the most basic inversion.  Julia has several methods for doing this.
+    # See the documentations for the `\` function.`
     reg = method.pred\means
     return reshape(reg,d,d), LinearAlgebra.norm(method.pred*reg-means,2)/length(means), :Optimal
 end
@@ -71,6 +84,8 @@ function fit(method::FreeLSStateTomo,
         error("Variances must be positive for generalized least squares.")
     end
 
+    # Do the basic inversion the same way as above but scale by the data
+    # variance if we have it.
     reg = (LinearAlgebra.Diagonal(1 ./ sqrt.(vars)) * method.pred) \ (LinearAlgebra.Diagonal(1 ./ sqrt.(vars)) * means)
     return reshape(reg,d,d),
            sqrt(LinearAlgebra.dot(method.pred*reg-means,LinearAlgebra.Diagonal(vars)\(method.pred*reg-means)))/length(means),
