@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/BBN-Q/QuantumTomography.jl.svg?branch=master)](https://travis-ci.org/BBN-Q/QuantumTomography.jl)
+![Build Status](https://github.com/BBN-Q/QuantumTomography.jl/workflows/CI/badge.svg)
 
 # QuantumTomography.jl
 
