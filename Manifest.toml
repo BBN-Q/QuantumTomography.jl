@@ -1,11 +1,5 @@
 # This file is machine-generated - editing it directly is not advised
 
-[[AbstractTrees]]
-deps = ["Markdown"]
-git-tree-sha1 = "33e450545eaf7699da1a6e755f9ea65f14077a45"
-uuid = "1520ce14-60c1-5f80-bbc7-55ef81b5835c"
-version = "0.3.3"
-
 [[Artifacts]]
 deps = ["Pkg"]
 git-tree-sha1 = "c30985d8821e0cd73870b17b0ed0ce6dc44cb744"
@@ -58,10 +52,10 @@ uuid = "944b1d66-785c-5afd-91f1-9de20f533193"
 version = "0.7.0"
 
 [[Compat]]
-deps = ["Base64", "Dates", "DelimitedFiles", "Distributed", "InteractiveUtils", "LibGit2", "Libdl", "LinearAlgebra", "Markdown", "Mmap", "Pkg", "Printf", "REPL", "Random", "SHA", "Serialization", "SharedArrays", "Sockets", "SparseArrays", "Statistics", "Test", "UUIDs", "Unicode"]
-git-tree-sha1 = "919c7f3151e79ff196add81d7f4e45d91bbf420b"
+deps = ["Base64", "Dates", "DelimitedFiles", "Distributed", "InteractiveUtils", "LibGit2", "Libdl", "LinearAlgebra", "Markdown", "Mmap", "Pkg", "Printf", "REPL", "Random", "Serialization", "SharedArrays", "Sockets", "SparseArrays", "Statistics", "Test", "UUIDs", "Unicode"]
+git-tree-sha1 = "b0b7e8a0d054fada22b64095b46469627a138943"
 uuid = "34da2185-b29b-5c13-b0c7-acf172513d20"
-version = "3.25.0"
+version = "2.2.1"
 
 [[CompilerSupportLibraries_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -70,10 +64,10 @@ uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
 version = "0.3.4+0"
 
 [[Convex]]
-deps = ["AbstractTrees", "BenchmarkTools", "LinearAlgebra", "MathProgBase", "OrderedCollections", "SparseArrays", "Test"]
-git-tree-sha1 = "77cb20ed09c5b8d2b548c0892d123939bd1011c7"
+deps = ["LinearAlgebra", "MathProgBase", "OrderedCollections", "Random", "SparseArrays", "Statistics", "Test"]
+git-tree-sha1 = "fed093534a71912bd11ce2bc0d5946ddb000b408"
 uuid = "f65535da-76fb-5f13-bab9-19810c17039a"
-version = "0.12.7"
+version = "0.11.3"
 
 [[DataAPI]]
 git-tree-sha1 = "ad84f52c0b8f05aa20839484dbaf01690b41ff84"
@@ -81,10 +75,10 @@ uuid = "9a962f9c-6df0-11e9-0e5d-c546b8b5ee8a"
 version = "1.4.0"
 
 [[DataStructures]]
-deps = ["Compat", "InteractiveUtils", "OrderedCollections"]
-git-tree-sha1 = "fb0aa371da91c1ff9dc7fbed6122d3e411420b9c"
+deps = ["InteractiveUtils", "OrderedCollections"]
+git-tree-sha1 = "88d48e133e6d3dd68183309877eac74393daa7eb"
 uuid = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
-version = "0.18.8"
+version = "0.17.20"
 
 [[Dates]]
 deps = ["Printf"]
@@ -112,9 +106,9 @@ version = "0.10.2"
 
 [[HTTP]]
 deps = ["Base64", "Dates", "IniFile", "MbedTLS", "Sockets", "URIs"]
-git-tree-sha1 = "504ca74f27377a25ebfd63b1f5e6ec3e9fb14690"
+git-tree-sha1 = "63055ee44b5c2b95ec1921edcf856c60124ff0c3"
 uuid = "cd3eb016-35fb-5094-929b-558a96fad6f3"
-version = "0.9.1"
+version = "0.9.2"
 
 [[IniFile]]
 deps = ["Test"]
@@ -269,10 +263,10 @@ uuid = "f50d1b31-88e8-58de-be2c-1cc44531875f"
 version = "0.2.2+1"
 
 [[SCS]]
-deps = ["BinaryProvider", "Libdl", "LinearAlgebra", "MathOptInterface", "MathProgBase", "SparseArrays"]
-git-tree-sha1 = "936d43feaceae3290472ddf800b496be094d727b"
+deps = ["BinaryProvider", "Compat", "Libdl", "MathOptInterface", "MathProgBase"]
+git-tree-sha1 = "f3372fde752302d3cd38d00e2adaf3a7731f7061"
 uuid = "c946c3f1-0d1f-5ce8-9dea-7daa1f7e2d13"
-version = "0.6.6"
+version = "0.5.1"
 
 [[SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
