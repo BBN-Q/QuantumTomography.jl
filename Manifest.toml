@@ -257,6 +257,14 @@ uuid = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
 deps = ["Serialization"]
 uuid = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 
+[[RandomQuantum]]
+deps = ["Cliffords", "LinearAlgebra", "QuantumInfo", "StatsBase"]
+git-tree-sha1 = "0da27097632c39a9d953d0bdd1f32e23f0a2176f"
+repo-rev = "master"
+repo-url = "https://github.com/BBN-Q/RandomQuantum.jl.git"
+uuid = "7779672a-5d86-5706-9bd0-ace5ecbc1638"
+version = "0.2.0"
+
 [[Rmath]]
 deps = ["Random", "Rmath_jll"]
 git-tree-sha1 = "86c5647b565873641538d8f812c04e4c9dbeb370"
