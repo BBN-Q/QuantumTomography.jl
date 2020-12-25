@@ -12,8 +12,8 @@ export fit,
 A general function that builds a predictor matrix from a list of matrices that
 represent observables used in the tomographic reconstruction.  Matrices are
 vectorized (column-major), transposed, then stacked vertically to create the
-A matrix in $ A * \rho = p$ linear inversion problem.  Here, p is a vector of
-experiment outcomes and $\rho$ is the density matrix to be reconstructed.
+A matrix in \$ A * \rho = p\$ linear inversion problem.  Here, p is a vector of
+experiment outcomes and \$\rho\$ is the density matrix to be reconstructed.
 See https://en.wikipedia.org/wiki/Quantum_tomography
 """
 function build_state_predictor(obs::Vector{Matrix{T}} where T)
