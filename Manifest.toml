@@ -244,10 +244,10 @@ uuid = "1fd47b50-473d-5c70-9696-f719f8f3bcdc"
 version = "2.4.1"
 
 [[QuantumInfo]]
-deps = ["Cliffords", "LinearAlgebra", "Test"]
-git-tree-sha1 = "37f809466c0c1e92667701236845773fd09a8f43"
+deps = ["Cliffords", "LinearAlgebra"]
+git-tree-sha1 = "c3dddfedd1a37d5c08924ff12b558fd111bff7b8"
 uuid = "bedefb8d-ef00-5401-aa81-ae9c3f6f84cc"
-version = "0.1.0"
+version = "0.2.0"
 
 [[REPL]]
 deps = ["InteractiveUtils", "Markdown", "Sockets"]
