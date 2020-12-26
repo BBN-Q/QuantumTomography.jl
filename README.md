@@ -1,5 +1,7 @@
 ![Build Status](https://github.com/BBN-Q/QuantumTomography.jl/workflows/CI/badge.svg)
 
+[![codecov](https://codecov.io/gh/BBN-Q/QuantumTomography.jl/branch/master/graph/badge.svg?token=Ts9IIxcoEe)](https://codecov.io/gh/BBN-Q/QuantumTomography.jl)
+
 # QuantumTomography.jl
 
 This is a package that provides basic routines to perform quantum
