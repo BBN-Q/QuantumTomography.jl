@@ -129,7 +129,7 @@ function fit(method::LSStateTomo,
              means::Vector{Float64},
              vars::Vector{Float64};
              #solver = MosekSolver(LOG=0))
-             solver = SCS.SCSSolver(verbose=0, max_iters=10_000, eps = 1e-8))
+             solver = SCS.Optimizer(verbose=0, max_iters=10_000, eps = 1e-8))
 
     if length(means) != length(vars) || method.outputdim != length(means)
         error("Size of observations and/or predictons do not match.")
@@ -205,7 +205,7 @@ function predict(method::MLStateTomo,ρ)
 end
 
 """
-`fitA(method::MLStateTomo, freq, solver=SCSSolver)`
+`fitA(method::MLStateTomo, freq, solver=SCS.Optimizer)`
 
 This is a state tomography fitting routine using convex optimization. It's use is currently
 discouraged simply because it is much slower than the iterative solver, and often does not
@@ -214,7 +214,7 @@ conver to a solution that meets the optimality criteria.
 function fitA(method::MLStateTomo,
              freq::Vector;
              #solver = MosekSolver(LOG=0))
-             solver = SCSSolver(verbose=0, max_iters=100_000, eps = 1e-8))
+             solver = SCS.Optimizer(verbose=0, max_iters=100_000, eps = 1e-8))
 
     if length(method.effects) != length(freq)
         error("Vector of counts and vector of effects must have same length, but length(counts) == $(length(counts)) != $(length(method.effects))")
@@ -259,7 +259,7 @@ conver to a solution that meets the optimality criteria, much like fitB.
 function fitB(method::MLStateTomo,
              freq::Vector;
              #solver = MosekSolver(LOG=0))
-             solver = SCSSolver(verbose=0, max_iters=100_000, eps = 1e-8))
+             solver = SCS.Optimizer(verbose=0, max_iters=100_000, eps = 1e-8))
 
     if length(method.effects) != length(freq)
         error("Vector of counts and vector of effects must have same length, but length(counts) == $(length(counts)) != $(length(method.effects))")
