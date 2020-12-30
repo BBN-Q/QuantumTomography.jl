@@ -201,7 +201,7 @@ for k = 1:kmax
     # println("   error     : $enorm")
     # println("   true state: $ρ")
     # println("   estimate  : $ρest")
-    @test status == :Optimal
+    @test string(status) == "Optimal"
     @test enorm < 1e-6
 
     status, enorm, _, ρest = test_qst_freels(ρ, obs, asymptotic=false)
@@ -211,7 +211,7 @@ for k = 1:kmax
     # println("   error     : $enorm")
     # println("   true state: $ρ")
     # println("   estimate  : $ρest")
-    @test status == :Optimal
+    @test string(status) == "Optimal"
     @test enorm < 5e-2
 
     status, enorm, obj, ρest = test_qst_ls(ρ, obs, asymptotic=true)
@@ -221,7 +221,7 @@ for k = 1:kmax
     # println("   error     : $enorm")
     # println("   true state: $ρ")
     # println("   estimate  : $ρest")
-    @test status == :Optimal
+    @test string(status) == "OPTIMAL"
     @test enorm < 1e-6
 
     status, enorm, _, ρest = test_qst_ls(ρ, obs, asymptotic=false)
@@ -231,7 +231,8 @@ for k = 1:kmax
     # println("   error     : $enorm")
     # println("   true state: $ρ")
     # println("   estimate  : $ρest")
-    @test status == :Optimal || ( status == :UnknownError && enorm < 5e-2 )
+    # @test string(status) == "Optimal" || ( string(status) == "Other_Error" && enorm < 5e-2 )
+    @test string(status) == "OPTIMAL"
     @test enorm < 5e-2
 
     status, enorm, _, ρest = test_qst_ml(ρ, obs, asymptotic=true)
@@ -241,7 +242,7 @@ for k = 1:kmax
     # println("   error     : $enorm")
     # println("   true state: $ρ")
     # println("   estimate  : $ρest")
-    @test status == :Optimal
+    @test string(status) == "Optimal"
     @test enorm < 5e-2
 
     status, enorm, _, ρest = test_qst_ml(ρ, obs, asymptotic=false)
@@ -251,7 +252,7 @@ for k = 1:kmax
     # println("   error     : $enorm")
     # println("   true state: $ρ")
     # println("   estimate  : $ρest")
-    @test status == :Optimal || status == :MaxIter
+    @test string(status) == "Optimal" || string(status) == "Iteration_Limit"
     @test enorm < 5e-2
 
     status, enorm, _, ρest = test_qst_ml(ρ, obs, β=0.001, asymptotic=true)
@@ -261,7 +262,7 @@ for k = 1:kmax
     # println("   error     : $enorm")
     # println("   true state: $ρ")
     # println("   estimate  : $ρest")
-    @test status == :Optimal
+    @test string(status) == "Optimal"
     @test enorm < 5e-2
 
     status, enorm, _, ρest = test_qst_ml(ρ, obs, β=0.001, asymptotic=false)
@@ -271,7 +272,7 @@ for k = 1:kmax
     # println("   error     : $enorm")
     # println("   true state: $ρ")
     # println("   estimate  : $ρest")
-    @test status == :Optimal
+    @test string(status) == "Optimal"
     @test enorm < 5e-2
 
     # status, enorm, _, ρest = test_qst_hml(ρ, obs, β=0.001, asymptotic=false)
@@ -282,7 +283,7 @@ for k = 1:kmax
     # println("   true state: $ρ")
     # println("   estimate  : $ρest")
     # println(enorm)
-    #@test status == :Optimal
+    #@test string(status) == "Optimal"
     #@test enorm < 5e-2
 end
 
@@ -296,22 +297,22 @@ for k = 1:kmax
     E = rand(OpenHaarEnsemble(2,3))
 
     status, enorm, _, Eest = test_qpt_free_lsq(10_000, E=E, asymptotic=true)
-    @test status == :Optimal
+    @test string(status) == "Optimal"
     @test enorm < 1e-3
 
     status, enorm, _, Eest = test_qpt_free_lsq(100_000, E=E, asymptotic=false)
-    @test status == :Optimal
+    @test string(status) == "Optimal"
     @test enorm < 1.3e-2
 
     status, enorm, _, Eest = test_qpt_lsq(10_000, E=E, asymptotic=true)
-    @test status == :Optimal
+    @test string(status) == "OPTIMAL"
     @test enorm < 1e-3
 
     # these tests pass intermittantly so removing them for now until we know
     # why they are failing
     #
     #status, enorm, _, Eest = test_qpt_lsq(100_000, E=E, asymptotic=false)
-    #@test_broken status == :Optimal || ( status == :UnknownError && enorm < 1.1e-2 )
+    #@test_broken string(status) == "Optimal" || ( status == MOI.TerminationStatusCode(24) && enorm < 1.1e-2 )
     #@test_broken enorm < 1.1e-2
 
     #println(result[k,:])
