@@ -2,7 +2,7 @@ name = "QuantumTomography"
 uuid = "1d9c40fe-1d26-11ea-03f8-f5801c7a1696"
 license = "ASL"
 authors = ["Marcus P da Silva", "John Lapeyre", "Matthew Ware"]
-version = "0.1.2"
+version = "0.1.3"
 
 [deps]
 Convex = "f65535da-76fb-5f13-bab9-19810c17039a"
