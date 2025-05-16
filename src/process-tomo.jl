@@ -23,8 +23,12 @@ Same functionality as `build_process_predictor` but returns a matrix in the
 Choi representation.
 """
 function build_choi_process_predictor(prep::Vector, obs::Vector)
-    exps = [ QuantumInfo.choi_liou_involution(vec(o)*vec(p)') for o in obs, p in prep ]
-    return reduce(vcat, map(m->vec(m)', vec(exps)) )
+    #exps = [ QuantumInfo.choi_liou_involution(vec(o)*vec(p)') for o in obs, p in prep ]
+    #return reduce(vcat, map(m->vec(m)', vec(exps)) )
+    exps = [ 0.5 * QuantumInfo.choi_liou_involution( vec(o)*vec(p)') for o in obs, p in prep ]
+    out = reduce(vcat,map(m->vec(m)', vec(exps)) )
+    No = floor(Int,length(obs)/length(prep))
+    return reduce(vcat,[transpose(reshape(reduce(vcat,reshape( reduce(hcat, map(m->vec(m)', vec(exps)) ),(size(out,2),length(prep),No,length(prep)) )[:,:,x,:]),(size(out,2),length(prep)^2))) for x=1:No])
 end
 
 """
@@ -168,7 +172,7 @@ begin
                  means::Vector{Float64},
                  vars = ones(length(means));
                  #solver = MosekSolver(LOG=0))
-                 solver = SCS.Optimizer(verbose=0, max_iters=10_000, eps = 1e-8))
+                 solver = SCS.SCSSolver(verbose=0, max_iters=10_000, eps = 1e-8))
 
         if length(means) != length(vars) || size(method.pred,1) != length(means)
             error("Size of observations and predictons do not match.")
@@ -204,7 +208,7 @@ begin
 
         Convex.solve!(problem, solver)
 
-        return QuantumInfo.choi_liou_involution((ρr.value + 1im*ρi.value)), problem.optval, problem.status
+        return (ρr.value + 1im*ρi.value), problem.optval, problem.status
     end
 end
 
