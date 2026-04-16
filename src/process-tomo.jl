@@ -1,38 +1,19 @@
 export FreeLSProcessTomo,
        LSProcessTomo
 
-"""
-`build_liou_process_predictor(prep::Vector, obs::Vector)`
-
-Build a predictor matrix in a similar way as state tomography.  The key
-difference in this case is the matrix entries are products of the preparation
-operators and the observable probe states.  The inner product of the two is
-taken then vectorized, transposed and stacked vertially to create the prediction
-matrix.  This allows the problem to be stated the same way as in the state
-tomography case.
-"""
 function build_liou_process_predictor(prep::Vector, obs::Vector)
     exps = [ vec(p)*vec(o)' for o in obs, p in prep ]
     return reduce(vcat, map(m->vec(m)', vec(exps)) )
 end
 
-"""
-`build_choi_process_predictor(prep::Vector, obs::Vector)`
-
-Same functionality as `build_process_predictor` but returns a matrix in the
-Choi representation.
-"""
 function build_choi_process_predictor(prep::Vector, obs::Vector)
-    exps = [ QuantumInfo.choi_liou_involution(vec(o)*vec(p)') for o in obs, p in prep ]
-    return reduce(vcat, map(m->vec(m)', vec(exps)) )
+    exps = [ 0.5 * QuantumInfo.choi_liou_involution( vec(o)*vec(p)') for o in obs, p in prep ]
+    out = reduce(vcat,map(m->vec(m)', vec(exps)) )
+    No = floor(Int,length(obs)/length(prep))
+    return reduce(vcat,[transpose(reshape(reduce(vcat,reshape( reduce(hcat, map(m->vec(m)', vec(exps)) ),(size(out,2),length(prep),No,length(prep)) )[:,:,x,:]),(size(out,2),length(prep)^2))) for x=1:No])
+    #return reduce(vcat, map(m->vec(m)', vec(exps)) )
 end
 
-"""
-`isstate(m::Matrix)`
-
-Test that a probe state is a proper density matrix.  Matrices should be
-Hermitian and trace 1.
-"""
 function isstate(m::Matrix)
     LinearAlgebra.ishermitian(m) && isapprox(LinearAlgebra.tr(m),1.0)
 end
@@ -137,6 +118,7 @@ struct LSProcessTomo
         @assert all([isstate(o) for o in states]) "States must be valid density matrices"
 
         pred = build_choi_process_predictor(states, obs)
+        #println(pred)
         outputdim = size(pred,1)
         inputdim = size(pred,2)
         new(length(states),length(obs),inputdim,outputdim,pred)
@@ -168,9 +150,12 @@ begin
                  means::Vector{Float64},
                  vars = ones(length(means));
                  #solver = MosekSolver(LOG=0))
-                 solver = SCS.Optimizer(verbose=0, max_iters=10_000, eps = 1e-8))
+                 solver = SCS.SCSSolver(verbose=0, max_iters=10_000, eps = 1e-8))
 
         if length(means) != length(vars) || size(method.pred,1) != length(means)
+            println(length(vars))
+            println(length(means))
+            println(size(method.pred))
             error("Size of observations and predictons do not match.")
         end
         d4 = size(method.pred,2)
@@ -204,7 +189,8 @@ begin
 
         Convex.solve!(problem, solver)
 
-        return QuantumInfo.choi_liou_involution((ρr.value + 1im*ρi.value)), problem.optval, problem.status
+        #return QuantumInfo.choi_liou_involution((ρr.value + 1im*ρi.value)), problem.optval, problem.status
+        return (ρr.value + 1im*ρi.value), problem.optval, problem.status
     end
 end
 
